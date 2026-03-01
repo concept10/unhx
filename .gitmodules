@@ -1,0 +1,9 @@
+[submodule "frameworks/objc-runtime"]
+	path = frameworks/objc-runtime
+	url = https://github.com/gnustep/libobjc2.git
+[submodule "frameworks/Foundation"]
+	path = frameworks/Foundation
+	url = https://github.com/gnustep/libs-base.git
+[submodule "frameworks/AppKit"]
+	path = frameworks/AppKit
+	url = https://github.com/gnustep/libs-gui.git
