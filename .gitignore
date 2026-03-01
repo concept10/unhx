@@ -1,0 +1,22 @@
+# Build artifacts
+build/
+*.elf
+*.o
+*.a
+
+# CMake out-of-source build directories
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# CodeQL analysis artifacts
+_codeql_build_dir/
+_codeql_detected_source_root
+
+# Editor / IDE
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
