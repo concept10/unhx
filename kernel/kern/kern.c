@@ -322,7 +322,10 @@ static void vfs_test_thread(void)
     serial_putstr("[vfs-test] Sending READ request for fd=");
     serial_puthex(fd);
     serial_putstr("\r\n");
-    ipc_mqueue_send(vfs_port->ip_messages, &read_req, sizeof(read_req));
+    mach_msg_return_t send_mr = ipc_mqueue_send(vfs_port->ip_messages, &read_req, sizeof(read_req));
+    serial_putstr("[vfs-test] READ send returned:");
+    serial_puthex(send_mr);
+    serial_putstr("\r\n");
     serial_putstr("[vfs-test] READ request sent, waiting for reply...\r\n");
 
     /* Poll for read reply */
