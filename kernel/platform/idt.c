@@ -150,13 +150,16 @@ void isr_dispatch(struct interrupt_frame *frame)
         uint8_t irq = (uint8_t)(vec - IRQ_BASE);
 
         /*
-         * IRQ handlers are registered dynamically (Step 4: timer).
-         * For now, just acknowledge and return.
+         * Send EOI BEFORE calling the handler.  If the handler triggers
+         * a context switch (e.g. sched_tick → sched_yield), we never
+         * return here, so the EOI must already be sent.  This is safe
+         * because interrupts are disabled (interrupt gate clears IF),
+         * preventing nested interrupts.
          */
+        pic_eoi(irq);
+
         extern void irq_handler(uint8_t irq, struct interrupt_frame *frame);
         irq_handler(irq, frame);
-
-        pic_eoi(irq);
         return;
     }
 

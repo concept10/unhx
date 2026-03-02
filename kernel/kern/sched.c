@@ -22,7 +22,6 @@
 
 /* Serial output (platform layer) */
 extern void serial_putstr(const char *s);
-extern void serial_putdec(uint32_t val);
 
 /* The run queue: a singly-linked list of runnable threads */
 static struct thread *run_queue_head = (void *)0;
@@ -64,14 +63,9 @@ static void pit_init(void)
  * Timer IRQ handler — called from irq_handler() in irq.c
  * ------------------------------------------------------------------------- */
 
-static volatile uint32_t tick_count = 0;
-
 static void timer_irq_handler(struct interrupt_frame *frame)
 {
     (void)frame;
-    tick_count++;
-    if (tick_count <= 3)
-        serial_putstr("[timer] tick\r\n");
     sched_tick();
 }
 
@@ -161,12 +155,6 @@ void sched_yield(void)
     }
 
     struct thread *prev = current_thread;
-
-    serial_putstr("[sched] yield: ");
-    serial_putdec(prev->th_id);
-    serial_putstr(" -> ");
-    serial_putdec(next->th_id);
-    serial_putstr("\r\n");
 
     /* Re-enqueue the current thread if it's still runnable */
     if (prev->th_state != THREAD_STATE_HALTED &&

@@ -28,31 +28,19 @@ static struct thread *thread_pool_alloc(void)
 }
 
 /*
- * thread_entry_trampoline — wrapper that calls the thread's entry point.
- *
- * When a new thread is first scheduled, context_switch_asm restores its
- * saved state.  We set up RIP to point here, with the real entry_point
- * stored in R12 (a callee-saved register preserved across the switch).
- *
- * This trampoline exists so that if the entry function returns, we can
- * cleanly halt the thread rather than crashing.
+ * thread_entry_trampoline — assembly entry point for new threads.
+ * Defined in context_switch.S.  Reads the real entry point from R12,
+ * enables interrupts, and calls thread_entry_helper().
  */
-static void thread_entry_trampoline(void)
+extern void thread_entry_trampoline(void);
+
+/*
+ * thread_entry_helper — C helper called from the assembly trampoline.
+ * Receives the entry_point in RDI (passed by the asm trampoline from R12).
+ * If the entry function returns, the thread halts cleanly.
+ */
+void thread_entry_helper(void (*entry)(void))
 {
-    /*
-     * Enable interrupts.  New threads are "born" from a context switch
-     * that may have occurred inside a timer ISR (where IF is cleared).
-     * We must re-enable interrupts so the thread can be preempted.
-     */
-    __asm__ volatile ("sti");
-
-    /*
-     * The real entry point was stashed in R12 by thread_create().
-     * We extract it via inline assembly and call it.
-     */
-    void (*entry)(void);
-    __asm__ volatile ("movq %%r12, %0" : "=r"(entry));
-
     if (entry)
         entry();
 

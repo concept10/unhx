@@ -70,3 +70,34 @@ context_switch_asm:
     ret
 
     /* NOTREACHED — execution continues in the target thread */
+
+/* ====================================================================
+ * thread_entry_trampoline — entry point for newly created threads.
+ *
+ * When context_switch_asm `ret`s into a new thread for the first time,
+ * R12 contains the real entry point (set up by thread_create on the
+ * initial stack frame and popped by context_switch_asm).
+ *
+ * We must read R12 in assembly BEFORE any C compiler-generated code
+ * runs, because the compiler may freely clobber callee-saved registers
+ * in a function prologue.
+ *
+ * This trampoline:
+ *   1. Enables interrupts (the context switch occurred inside a timer
+ *      ISR where IF was cleared by the interrupt gate).
+ *   2. Passes the entry point to thread_entry_helper() in RDI.
+ *   3. thread_entry_helper() calls the real entry function.
+ * ==================================================================== */
+
+    .globl  thread_entry_trampoline
+    .type   thread_entry_trampoline, @function
+thread_entry_trampoline:
+    sti                     /* enable interrupts for this thread         */
+    movq    %r12, %rdi      /* pass entry_point as first C argument      */
+    call    thread_entry_helper
+
+    /* thread_entry_helper should never return, but just in case: */
+.Ltrampoline_hlt:
+    cli
+    hlt
+    jmp     .Ltrampoline_hlt
