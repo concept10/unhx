@@ -18,6 +18,7 @@
 #include "bootstrap/bootstrap.h"
 
 extern void serial_putstr(const char *s);
+extern void serial_puthex(uint64_t val);
 
 /* -------------------------------------------------------------------------
  * Global VFS port — set before entering the message loop.
@@ -66,6 +67,7 @@ void vfs_server_main(void)
     uint8_t buf[sizeof(vfs_write_msg_t) + 16];
 
     for (;;) {
+        serial_putstr("[vfs] Calling receive...\r\n");
         mach_msg_size_t msg_size = 0;
         mach_msg_return_t mr = ipc_mqueue_receive(
             vfs_port->ip_messages,
@@ -73,10 +75,22 @@ void vfs_server_main(void)
             &msg_size,
             1 /* blocking */);
 
+        serial_putstr("[vfs] Receive returned:");
+        serial_puthex(mr);
+        serial_putstr(" size=");
+        serial_puthex(msg_size);
+        serial_putstr("\r\n");
+
         if (mr != MACH_MSG_SUCCESS)
             continue;
 
         mach_msg_header_t *hdr = (mach_msg_header_t *)buf;
+
+        serial_putstr("[vfs] Received message id=");
+        serial_puthex(hdr->msgh_id);
+        serial_putstr(" size=");
+        serial_puthex(msg_size);
+        serial_putstr("\r\n");
 
         switch (hdr->msgh_id) {
 
@@ -111,9 +125,23 @@ void vfs_server_main(void)
                 break;
             vfs_read_msg_t *req = (vfs_read_msg_t *)buf;
 
+            serial_putstr("[vfs] READ: fd=");
+            serial_puthex(req->fd);
+            serial_putstr(" count=");
+            serial_puthex(req->count);
+            serial_putstr(" offset=");
+            serial_puthex(req->offset);
+            serial_putstr("\r\n");
+
             uint8_t  data_buf[VFS_DATA_MAX];
             uint32_t want = req->count < VFS_DATA_MAX ? req->count : VFS_DATA_MAX;
             int      n    = ramfs_read(req->fd, data_buf, want, req->offset);
+
+            serial_putstr("[vfs] ramfs_read returned n=");
+            serial_puthex(n);
+            serial_putstr(" reply_port=");
+            serial_puthex((uint64_t)req->reply_port);
+            serial_putstr("\r\n");
 
             if (req->reply_port) {
                 vfs_reply_msg_t reply;
@@ -125,8 +153,16 @@ void vfs_server_main(void)
                 if (n > 0)
                     kmemcpy(reply.data, data_buf, (uint32_t)n);
 
+                serial_putstr("[vfs] Sending READ reply to port ");
+                serial_puthex((uint64_t)req->reply_port);
+                serial_putstr("\r\n");
+
                 struct ipc_port *rp = (struct ipc_port *)req->reply_port;
                 ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+                
+                serial_putstr("[vfs] READ reply sent\r\n");
+            } else {
+                serial_putstr("[vfs] READ reply_port is NULL, not sending\r\n");
             }
             break;
         }
