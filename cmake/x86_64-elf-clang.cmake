@@ -3,10 +3,11 @@
 # Builds an x86-64 freestanding ELF kernel from any host (including arm64 macOS).
 #
 # Uses clang with --target=x86_64-unknown-elf for compilation and assembly,
-# and LLVM's lld (ld.lld) for ELF linking.
+# and LLVM's ld.lld directly for ELF linking (bypassing the clang driver
+# to avoid macOS-specific linker flags being injected).
 #
 # Prerequisites:
-#   macOS:  brew install llvm qemu
+#   macOS:  brew install llvm lld qemu
 #   Linux:  apt install clang lld qemu-system-x86 (or equivalent)
 #
 # Usage:
@@ -20,33 +21,33 @@ set(CMAKE_SYSTEM_NAME      Generic)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
 # ---------------------------------------------------------------------------
-# Detect LLVM installation
+# Detect LLVM clang (prefer brew LLVM, fallback to system clang)
 # ---------------------------------------------------------------------------
-# On macOS with Homebrew, LLVM is at /opt/homebrew/opt/llvm (Apple Silicon)
-# or /usr/local/opt/llvm (Intel Mac).
-
 if(EXISTS "/opt/homebrew/opt/llvm/bin/clang")
-    set(LLVM_PREFIX "/opt/homebrew/opt/llvm")
+    set(LLVM_CLANG "/opt/homebrew/opt/llvm/bin/clang")
 elseif(EXISTS "/usr/local/opt/llvm/bin/clang")
-    set(LLVM_PREFIX "/usr/local/opt/llvm")
-elseif(EXISTS "/usr/bin/clang")
-    set(LLVM_PREFIX "")
+    set(LLVM_CLANG "/usr/local/opt/llvm/bin/clang")
+else()
+    set(LLVM_CLANG "clang")
 endif()
 
 # ---------------------------------------------------------------------------
-# Compilers
+# Detect ld.lld (brew lld installs to /opt/homebrew/bin/ld.lld)
 # ---------------------------------------------------------------------------
-if(LLVM_PREFIX)
-    set(CMAKE_C_COMPILER   "${LLVM_PREFIX}/bin/clang")
-    set(CMAKE_ASM_COMPILER "${LLVM_PREFIX}/bin/clang")
-    set(CMAKE_LINKER       "${LLVM_PREFIX}/bin/ld.lld")
+if(EXISTS "/opt/homebrew/bin/ld.lld")
+    set(LLD_LINKER "/opt/homebrew/bin/ld.lld")
+elseif(EXISTS "/usr/local/bin/ld.lld")
+    set(LLD_LINKER "/usr/local/bin/ld.lld")
 else()
-    # Fallback to system clang (may work on Linux; on macOS needs lld in PATH)
-    set(CMAKE_C_COMPILER   "clang")
-    set(CMAKE_ASM_COMPILER "clang")
     find_program(LLD_LINKER ld.lld REQUIRED)
-    set(CMAKE_LINKER       "${LLD_LINKER}")
 endif()
+
+# ---------------------------------------------------------------------------
+# Set compilers
+# ---------------------------------------------------------------------------
+set(CMAKE_C_COMPILER   "${LLVM_CLANG}")
+set(CMAKE_ASM_COMPILER "${LLVM_CLANG}")
+set(CMAKE_LINKER       "${LLD_LINKER}")
 
 set(CMAKE_C_COMPILER_TARGET   "x86_64-unknown-elf")
 set(CMAKE_ASM_COMPILER_TARGET "x86_64-unknown-elf")
@@ -59,10 +60,25 @@ set(CMAKE_C_COMPILER_WORKS   TRUE)
 set(CMAKE_ASM_COMPILER_WORKS TRUE)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
-# Use lld as the linker (produces ELF output, unlike Apple's ld64)
-set(CMAKE_EXE_LINKER_FLAGS_INIT "-fuse-ld=lld --target=x86_64-unknown-elf")
-set(CMAKE_C_FLAGS_INIT          "--target=x86_64-unknown-elf")
-set(CMAKE_ASM_FLAGS_INIT        "--target=x86_64-unknown-elf")
+set(CMAKE_C_FLAGS_INIT   "--target=x86_64-unknown-elf")
+set(CMAKE_ASM_FLAGS_INIT "--target=x86_64-unknown-elf")
+
+# ---------------------------------------------------------------------------
+# Override the link command to invoke ld.lld directly
+# ---------------------------------------------------------------------------
+# CMake's default link command uses the C compiler as the linker driver,
+# which on macOS causes Apple-specific flags (-arch, -platform_version,
+# -syslibroot) to be injected even with --target=x86_64-unknown-elf.
+#
+# We bypass this entirely by invoking ld.lld directly.
+# <CMAKE_LINKER> = ld.lld path
+# <FLAGS>        = target_link_options from CMakeLists.txt
+# <OBJECTS>      = compiled .obj files
+# <TARGET>       = output filename
+# <LINK_FLAGS>   = additional link flags
+set(CMAKE_C_LINK_EXECUTABLE
+    "${LLD_LINKER} <FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET>"
+)
 
 # Don't search for host programs/libraries (cross-compile mode)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
