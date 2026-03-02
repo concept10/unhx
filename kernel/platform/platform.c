@@ -12,6 +12,8 @@
 
 #include "platform.h"
 #include "gdt.h"
+#include "idt.h"
+#include "pic.h"
 
 /* COM1 I/O base address (standard PC) */
 #define COM1_PORT   0x3F8
@@ -97,4 +99,6 @@ void platform_init(void)
 {
     gdt_init();
     serial_init();
+    pic_init();
+    idt_init();
 }

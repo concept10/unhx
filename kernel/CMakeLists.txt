@@ -69,9 +69,13 @@ set(KERNEL_SOURCES
     # Platform layer (boot and hardware abstraction)
     platform/boot.S
     platform/context_switch.S
+    platform/isr.S
     platform/gdt.c
     platform/platform.c
     platform/paging.c
+    platform/idt.c
+    platform/pic.c
+    platform/irq.c
 
     # IPC subsystem
     ipc/ipc.c
@@ -84,6 +88,7 @@ set(KERNEL_SOURCES
 
     # Kernel core
     kern/kalloc.c
+    kern/zalloc.c
     kern/klib.c
     kern/kern.c
     kern/task.c

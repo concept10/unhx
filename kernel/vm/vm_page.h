@@ -76,4 +76,10 @@ void vm_page_free(struct vm_page *page);
  */
 uint32_t vm_page_count_free(void);
 
+/*
+ * vm_page_lookup — find the vm_page struct for a given physical address.
+ * Returns NULL if no page with that address is tracked.
+ */
+struct vm_page *vm_page_lookup(uint64_t phys_addr);
+
 #endif /* VM_PAGE_H */

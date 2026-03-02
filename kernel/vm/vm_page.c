@@ -70,3 +70,12 @@ uint32_t vm_page_count_free(void)
 {
     return free_count;
 }
+
+struct vm_page *vm_page_lookup(uint64_t phys_addr)
+{
+    for (uint32_t i = 0; i < total_pages; i++) {
+        if (page_array[i].pg_phys_addr == phys_addr)
+            return &page_array[i];
+    }
+    return (void *)0;
+}

@@ -11,6 +11,7 @@
 #include "kern.h"
 #include "kalloc.h"
 #include "kernel_task.h"
+#include "task.h"
 #include "sched.h"
 #include "ipc/ipc.h"
 #include "vm/vm.h"
@@ -59,6 +60,9 @@ void kernel_main(void)
 
     serial_putstr("[UNHOX] initialising VM subsystem...\r\n");
     vm_init(0, 0);  /* TODO: parse real Multiboot2 memory map */
+
+    serial_putstr("[UNHOX] activating zone allocator...\r\n");
+    kalloc_zones_init();
 
     serial_putstr("[UNHOX] initialising kernel core...\r\n");
     kern_init();

@@ -1,19 +1,25 @@
 /*
  * kernel/platform/gdt.c — GDT initialisation for UNHOX (x86-64)
  *
- * Builds a minimal three-entry Global Descriptor Table and loads it via the
- * lgdt instruction.  After gdt_init() returns all segment registers hold
- * valid selectors and the CPU is in a well-defined long-mode state.
+ * Builds a 7-entry GDT with kernel/user segments and a TSS descriptor,
+ * then loads it via lgdt and loads the TR (task register) via ltr.
  *
- * Reference: Intel® 64 and IA-32 Architectures SDM Vol. 3A §3.4–§3.5.
+ * GDT layout:
+ *   [0] null    [1] kcode    [2] kdata    [3] ucode    [4] udata
+ *   [5] TSS low [6] TSS high
+ *
+ * Reference: Intel SDM Vol. 3A §3.4–§3.5, §7.2.3 (TSS in 64-bit mode).
  */
 
 #include "gdt.h"
-#include <stddef.h>
+#include "kern/klib.h"
 
 /* The GDT table itself — statically allocated, aligned for hardware access */
 static struct gdt_entry  gdt_table[GDT_ENTRY_COUNT] __attribute__((aligned(8)));
 static struct gdt_descriptor gdt_desc;
+
+/* The single TSS (one CPU, no SMP) */
+static struct tss64 tss __attribute__((aligned(16)));
 
 /* -------------------------------------------------------------------------
  * gdt_set_entry — helper to fill one GDT slot
@@ -37,30 +43,43 @@ static void gdt_set_entry(int index,
     e->access      = access;
 }
 
+/*
+ * Install the 16-byte TSS descriptor in GDT entries 5 and 6.
+ *
+ * In 64-bit mode, system segment descriptors (TSS, LDT) are 16 bytes wide.
+ * They occupy two consecutive GDT slots:
+ *   Slot 5: standard 8-byte descriptor with base[31:0] and limit
+ *   Slot 6: upper 8 bytes contain base[63:32] and reserved fields
+ */
+static void gdt_set_tss(uint64_t base, uint32_t limit)
+{
+    /* Low 8 bytes (GDT entry 5) */
+    gdt_table[5].limit_low   = (uint16_t)(limit & 0xFFFF);
+    gdt_table[5].base_low    = (uint16_t)(base & 0xFFFF);
+    gdt_table[5].base_middle = (uint8_t)((base >> 16) & 0xFF);
+    gdt_table[5].access      = GDT_ACCESS_TSS;
+    gdt_table[5].granularity = (uint8_t)((limit >> 16) & 0x0F);
+    gdt_table[5].base_high   = (uint8_t)((base >> 24) & 0xFF);
+
+    /* High 8 bytes (GDT entry 6): base[63:32] and reserved */
+    uint32_t *high = (uint32_t *)&gdt_table[6];
+    high[0] = (uint32_t)(base >> 32);   /* base [63:32] */
+    high[1] = 0;                         /* reserved      */
+}
+
 /* -------------------------------------------------------------------------
  * gdt_load — load the GDTR and reload segment registers
- *
- * After lgdt we must reload CS via a far jump (or, in 64-bit mode, a far
- * return) because changing the GDT does not automatically update the
- * segment descriptor cache.
  * ------------------------------------------------------------------------- */
 
 static void gdt_load(void)
 {
     __asm__ volatile (
         "lgdt %0\n\t"
-        /*
-         * Reload CS with the kernel code selector via a far return.
-         * We push the new CS value and the return address, then lret.
-         * This is the standard technique for reloading CS in 64-bit mode
-         * because a direct far jump with a 64-bit target is not encodable.
-         */
-        "pushq %1\n\t"              /* push kernel code selector             */
-        "leaq  1f(%%rip), %%rax\n\t"/* load address of label '1'            */
-        "pushq %%rax\n\t"           /* push return address                   */
-        "lretq\n\t"                 /* far return: loads CS, jumps to label  */
+        "pushq %1\n\t"
+        "leaq  1f(%%rip), %%rax\n\t"
+        "pushq %%rax\n\t"
+        "lretq\n\t"
         "1:\n\t"
-        /* Reload all data segment registers with the kernel data selector */
         "movw %2, %%ax\n\t"
         "movw %%ax, %%ds\n\t"
         "movw %%ax, %%es\n\t"
@@ -75,34 +94,50 @@ static void gdt_load(void)
     );
 }
 
+/* Load the Task Register with the TSS selector */
+static void tss_load(void)
+{
+    __asm__ volatile ("ltr %0" : : "r"((uint16_t)GDT_SELECTOR_TSS) : "memory");
+}
+
 /* -------------------------------------------------------------------------
- * gdt_init — public entry point
+ * Public interface
  * ------------------------------------------------------------------------- */
 
 void gdt_init(void)
 {
-    /* Entry 0: null descriptor — required; all fields must be zero */
+    /* Entry 0: null descriptor */
     gdt_set_entry(0, 0, 0, 0, 0);
 
-    /*
-     * Entry 1: kernel code segment
-     * base=0, limit=0xFFFFF (with G=1 → 4GB, ignored in 64-bit mode)
-     * access = present | ring-0 | code | readable
-     * gran   = 4KB granularity | L=1 (64-bit) | D/B=0
-     */
+    /* Entry 1: kernel code segment (ring 0, 64-bit) */
     gdt_set_entry(1, 0, 0xFFFFF, GDT_ACCESS_CODE_RING0, GDT_GRAN_LONG_CODE);
 
-    /*
-     * Entry 2: kernel data segment
-     * base=0, limit=0xFFFFF
-     * access = present | ring-0 | data | read-write
-     * gran   = 4KB granularity | 32-bit (D/B=1); data segs ignore L bit
-     */
+    /* Entry 2: kernel data segment (ring 0) */
     gdt_set_entry(2, 0, 0xFFFFF, GDT_ACCESS_DATA_RING0, GDT_GRAN_DATA);
+
+    /* Entry 3: user code segment (ring 3, 64-bit) */
+    gdt_set_entry(3, 0, 0xFFFFF, GDT_ACCESS_CODE_RING3, GDT_GRAN_LONG_CODE);
+
+    /* Entry 4: user data segment (ring 3) */
+    gdt_set_entry(4, 0, 0xFFFFF, GDT_ACCESS_DATA_RING3, GDT_GRAN_DATA);
+
+    /* Initialise the TSS */
+    kmemset(&tss, 0, sizeof(tss));
+    tss.iopb_offset = sizeof(tss);  /* no I/O permission bitmap */
+
+    /* Entries 5–6: TSS descriptor (16 bytes spanning two GDT slots) */
+    gdt_set_tss((uint64_t)(uintptr_t)&tss, sizeof(tss) - 1);
 
     /* Set up the GDTR descriptor */
     gdt_desc.limit = (uint16_t)(sizeof(gdt_table) - 1);
     gdt_desc.base  = (uint64_t)(uintptr_t)gdt_table;
 
+    /* Load the GDT and TSS */
     gdt_load();
+    tss_load();
+}
+
+void tss_set_rsp0(uint64_t rsp0)
+{
+    tss.rsp0 = rsp0;
 }
