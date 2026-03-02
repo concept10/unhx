@@ -1,80 +1,54 @@
 /*
- * kernel/linker.ld — Linker script for the UNHOX higher-half kernel
+ * kernel/linker.ld — Linker script for the UNHOX kernel (Phase 1)
  *
- * The kernel is linked to run at virtual address 0xFFFFFFFF80000000
- * (the "higher half" of the 64-bit virtual address space), but is loaded
- * by GRUB at physical address 0x100000 (1 MB, the traditional location
- * for Multiboot kernels above the legacy BIOS area).
+ * Phase 1: the kernel is linked and runs at physical address 0x100000 (1 MB).
+ * This is the traditional location for Multiboot kernels above the legacy
+ * BIOS area.  All addresses are physical — no higher-half mapping yet.
  *
- * The difference between the virtual load address and the physical load
- * address is called the KERNEL_OFFSET:
- *   KERNEL_OFFSET = 0xFFFFFFFF80000000 - 0x0000000000100000
- *                 = 0xFFFFFFFF7FF00000
+ * Phase 2 will add a proper higher-half mapping (VIRT_BASE 0xFFFFFFFF80000000)
+ * with a two-stage boot trampoline.
  *
- * During the boot.S trampoline the kernel executes from physical addresses
- * (the identity mapping covers the first 2 MB).  Once paging_init() sets up
- * the higher-half mapping, the kernel switches to virtual addresses and the
- * identity mapping can be removed.
- *
- * Reference: System V AMD64 ABI §3.3 — Process Initialization;
- *            "Higher Half Kernel" — OSDev Wiki.
+ * Reference: Multiboot2 Specification §3.1 — OS image format.
  */
 
 OUTPUT_FORMAT("elf64-x86-64")
 OUTPUT_ARCH(i386:x86-64)
 ENTRY(_start)
 
-/* Physical load address (where GRUB places the image) */
 PHYS_BASE = 0x0000000000100000;
-
-/* Virtual run address (where the kernel sees itself at runtime) */
-VIRT_BASE = 0xFFFFFFFF80000000;
-
-KERNEL_OFFSET = VIRT_BASE - PHYS_BASE;
 
 SECTIONS
 {
-    /*
-     * The Multiboot2 header must appear very early in the image so that GRUB
-     * finds it in the first 32 KB scan.  We place it in its own section at
-     * the start of the physical image, before the main text.
-     */
     . = PHYS_BASE;
 
-    .multiboot2 : AT(PHYS_BASE)
+    /*
+     * Multiboot1 header — must appear within the first 8 KB of the image.
+     */
+    .multiboot : AT(PHYS_BASE)
     {
-        KEEP(*(.multiboot2))
+        KEEP(*(.multiboot))
     }
 
-    /*
-     * Main kernel text, mapped to the higher half.
-     * AT(ADDR(.text) - KERNEL_OFFSET) tells the linker the physical load
-     * address while ADDR() gives the virtual address.
-     */
-    . = VIRT_BASE + SIZEOF(.multiboot2);
-
-    .text ALIGN(4096) : AT(ADDR(.text) - KERNEL_OFFSET)
+    .text ALIGN(4096) : AT(ADDR(.text))
     {
-        *(.text.boot_paging)    /* boot page-table helpers first            */
+        *(.text.boot_paging)
         *(.text*)
     }
 
-    .rodata ALIGN(4096) : AT(ADDR(.rodata) - KERNEL_OFFSET)
+    .rodata ALIGN(4096) : AT(ADDR(.rodata))
     {
         *(.rodata*)
     }
 
-    .data ALIGN(4096) : AT(ADDR(.data) - KERNEL_OFFSET)
+    .data ALIGN(4096) : AT(ADDR(.data))
     {
         *(.data*)
     }
 
     /*
      * BSS: uninitialized data, zeroed by boot.S before calling kernel_main.
-     * We export __bss_start and __bss_end so that the BSS-clearing loop in
-     * boot.S can find the boundaries.
      */
-    .bss ALIGN(4096) : AT(ADDR(.bss) - KERNEL_OFFSET)
+    .bss ALIGN(4096) : AT(ADDR(.bss))
     {
         __bss_start = .;
         *(.bss*)
@@ -82,7 +56,6 @@ SECTIONS
         __bss_end = .;
     }
 
-    /* Discard debug / build-id sections we do not need in the final image */
     /DISCARD/ :
     {
         *(.comment)
