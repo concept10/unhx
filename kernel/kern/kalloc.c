@@ -32,7 +32,7 @@
  * vm_map (~3104), and thread stacks (8192).  With MAX_TASKS=16, worst case
  * is ~16 * (4128 + 3104 + 8192) ≈ 247 KB.
  */
-#define STATIC_HEAP_SIZE  (256 * 1024)
+#define STATIC_HEAP_SIZE  (1024 * 1024)  /* 1 MB - enough for exec() image buffers */
 
 static uint8_t  static_heap[STATIC_HEAP_SIZE] __attribute__((aligned(KALLOC_ALIGN)));
 static size_t   static_heap_offset;
