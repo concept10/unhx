@@ -77,7 +77,7 @@ set(CMAKE_ASM_FLAGS_INIT "--target=x86_64-unknown-elf")
 # <TARGET>       = output filename
 # <LINK_FLAGS>   = additional link flags
 set(CMAKE_C_LINK_EXECUTABLE
-    "${LLD_LINKER} <FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET>"
+    "${LLD_LINKER} <LINK_FLAGS> <OBJECTS> -o <TARGET>"
 )
 
 # Don't search for host programs/libraries (cross-compile mode)
