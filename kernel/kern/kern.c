@@ -248,6 +248,13 @@ done:
 
 static void vfs_test_thread(void)
 {
+    extern void serial_putstr(const char *s);
+    extern void serial_puthex(uint64_t val);
+    
+    serial_putstr("[vfs-test] thread ID=");
+    serial_puthex((uint64_t)sched_current());
+    serial_putstr("\r\n");
+    
     /* Spin until the VFS server has set vfs_port */
     while (!vfs_port)
         for (volatile int i = 0; i < 10000; i++)
@@ -284,11 +291,11 @@ static void vfs_test_thread(void)
                                 rbuf, sizeof(rbuf), &out_size, 0);
         if (mr != MACH_MSG_SUCCESS) {
             poll_count++;
-            if (poll_count % 1000 == 0) {
+            if (poll_count % 100 == 0) {
                 serial_putstr("[vfs-test] Still polling for OPEN reply...\r\n");
             }
-            for (volatile int s = 0; s < 10000; s++)
-                ;
+            /* Yield CPU to let other threads run instead of spinning */
+            sched_yield();
         }
     } while (mr != MACH_MSG_SUCCESS);
 
@@ -328,20 +335,10 @@ static void vfs_test_thread(void)
     serial_putstr("\r\n");
     serial_putstr("[vfs-test] READ request sent, waiting for reply...\r\n");
 
-    /* Poll for read reply */
-    poll_count = 0;
-    do {
-        mr = ipc_mqueue_receive(read_reply->ip_messages,
-                                rbuf, sizeof(rbuf), &out_size, 0);
-        if (mr != MACH_MSG_SUCCESS) {
-            poll_count++;
-            if (poll_count % 1000 == 0) {
-                serial_putstr("[vfs-test] Still polling for READ reply...\r\n");
-            }
-            for (volatile int s = 0; s < 10000; s++)
-                ;
-        }
-    } while (mr != MACH_MSG_SUCCESS);
+    /* Block on read reply — this puts us in WAITING state, allowing other
+     * threads (like the VFS server) to run and process our READ message. */
+    mr = ipc_mqueue_receive(read_reply->ip_messages,
+                            rbuf, sizeof(rbuf), &out_size, 1 /* blocking */);
 
     serial_putstr("[vfs-test] READ reply received\r\n");
     vfs_reply_msg_t *read_rep = (vfs_reply_msg_t *)rbuf;
@@ -496,6 +493,8 @@ void kernel_main(uint32_t mb_info_phys)
          * Blocking IPC test:
          * Thread "receiver" blocks on receive, thread "sender" sends after delay.
          */
+        /* Disabled to reduce scheduling contention */
+        #if 0
         blocking_test_port = ipc_port_alloc(ktask);
         if (blocking_test_port) {
             struct thread *th_recv = thread_create(ktask, blocking_ipc_receiver, 0);
@@ -513,6 +512,7 @@ void kernel_main(uint32_t mb_info_phys)
         struct thread *th_b = thread_create(ktask, sched_test_thread_b, 0);
         if (th_b)
             sched_enqueue(th_b);
+        #endif
 
         serial_putstr("[UNHOX] threads created, entering scheduler\r\n");
     }
