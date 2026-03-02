@@ -85,11 +85,16 @@ void kernel_main(void)
 
     /*
      * Initialise subsystems in dependency order:
-     *   1. kalloc  — kernel heap (needed by everything)
-     *   2. IPC     — port/space infrastructure
-     *   3. VM      — physical page allocator
-     *   4. kern    — kernel task, scheduler
+     *   0. platform — GDT (with TSS), PIC, IDT (must be before interrupts)
+     *   1. kalloc   — kernel heap (needed by everything)
+     *   2. IPC      — port/space infrastructure
+     *   3. VM       — physical page allocator
+     *   4. kern     — kernel task, scheduler
      */
+    serial_putstr("[UNHOX] initialising platform...\r\n");
+    extern void platform_init(void);
+    platform_init();
+
     serial_putstr("[UNHOX] initialising kernel heap...\r\n");
     kalloc_init();
 
