@@ -72,14 +72,6 @@ mach_msg_return_t ipc_mqueue_send(struct ipc_mqueue *mq,
     kmsg->ikm_next = (void *)0;
     kmemcpy(kmsg->ikm_data, msg, msg_size);
 
-    extern void serial_putstr(const char *s);
-    extern void serial_puthex(uint64_t val);
-    serial_putstr("[ipc_send] Enqueued msg to mq=");
-    serial_puthex((uint64_t)mq);
-    serial_putstr(" count=");
-    serial_puthex(mq->imq_count + 1);
-    serial_putstr("\r\n");
-
     /* Enqueue at tail (FIFO) */
     if (mq->imq_tail) {
         mq->imq_tail->ikm_next = kmsg;

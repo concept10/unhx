@@ -7,10 +7,12 @@
 
 #include "vfs/ramfs.h"
 #include "kern/klib.h"
+#include "kern/kern.h"
 
 struct ramfs_file {
     char     name[RAMFS_PATH_MAX];
-    uint8_t  data[RAMFS_DATA_MAX];
+    const uint8_t *data;
+    uint8_t  inline_data[RAMFS_DATA_MAX];
     uint32_t size;
     int      active;
 };
@@ -32,7 +34,21 @@ static void ramfs_add(const char *name, const char *content, uint32_t size)
 
     if (size > RAMFS_DATA_MAX)
         size = RAMFS_DATA_MAX;
-    kmemcpy(f->data, content, size);
+    kmemcpy(f->inline_data, content, size);
+    f->data   = f->inline_data;
+    f->size   = size;
+    f->active = 1;
+    nfiles++;
+}
+
+static void ramfs_add_blob(const char *name, const uint8_t *blob, uint32_t size)
+{
+    if (!name || !blob || size == 0 || nfiles >= RAMFS_MAX_FILES)
+        return;
+
+    struct ramfs_file *f = &files[nfiles];
+    kstrncpy(f->name, name, RAMFS_PATH_MAX);
+    f->data   = blob;
     f->size   = size;
     f->active = 1;
     nfiles++;
@@ -54,6 +70,11 @@ void ramfs_init(void)
     ramfs_add("/bin/README",
               "UNHOX /bin — shell and system utilities\n",
               40);
+
+    /* Export the boot initrd ELF so userspace can exec it via /bin path. */
+    if (g_boot_initrd_data && g_boot_initrd_size > 0) {
+        ramfs_add_blob("/bin/init.elf", g_boot_initrd_data, (uint32_t)g_boot_initrd_size);
+    }
 }
 
 int ramfs_open(const char *path)

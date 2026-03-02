@@ -12,8 +12,21 @@
 #include "ipc/ipc_port.h"
 #include "ipc/ipc_mqueue.h"
 #include "kern/klib.h"
+#include "kern/kalloc.h"
 #include "kern/task.h"
+#include "kern/sched.h"
+#include "kern/thread.h"
+#include "kern/elf.h"
+#include "kern/elf_load.h"
+#include "vfs/vfs_msg.h"
+#include "vm/vm_map.h"
+#include "platform/paging.h"
+#include "platform/idt.h"
 #include "bootstrap/bootstrap.h"
+
+#define BSD_EXEC_MAX_IMAGE   (512 * 1024)
+#define BSD_USER_STACK_BASE  0x7FFF0000ULL
+#define BSD_USER_STACK_SIZE  0x10000ULL
 
 extern void serial_putstr(const char *s);
 extern void serial_putchar(char c);
@@ -24,6 +37,156 @@ extern char serial_getchar(void);
  * ------------------------------------------------------------------------- */
 
 struct ipc_port *bsd_port = (void *)0;
+
+static int bsd_vfs_open(const char *path)
+{
+    if (!path || !vfs_port)
+        return -1;
+
+    struct ipc_port *reply = ipc_port_alloc(kernel_task_ptr());
+    if (!reply)
+        return -1;
+
+    vfs_open_msg_t req;
+    kmemset(&req, 0, sizeof(req));
+    req.hdr.msgh_size = sizeof(req);
+    req.hdr.msgh_id   = VFS_MSG_OPEN;
+    kstrncpy(req.path, path, VFS_PATH_MAX);
+    req.reply_port    = (uint64_t)reply;
+
+    if (ipc_mqueue_send(vfs_port->ip_messages, &req, sizeof(req)) != MACH_MSG_SUCCESS)
+        return -1;
+
+    vfs_reply_msg_t rep;
+    mach_msg_size_t out_size = 0;
+    if (ipc_mqueue_receive(reply->ip_messages, &rep, sizeof(rep), &out_size, 1) != MACH_MSG_SUCCESS)
+        return -1;
+
+    if (rep.retcode != VFS_SUCCESS)
+        return -1;
+    return rep.result;
+}
+
+static int bsd_vfs_read_chunk(int fd, uint32_t offset, uint8_t *buf, uint32_t count)
+{
+    if (!vfs_port || !buf || count == 0)
+        return -1;
+
+    struct ipc_port *reply = ipc_port_alloc(kernel_task_ptr());
+    if (!reply)
+        return -1;
+
+    vfs_read_msg_t req;
+    kmemset(&req, 0, sizeof(req));
+    req.hdr.msgh_size = sizeof(req);
+    req.hdr.msgh_id   = VFS_MSG_READ;
+    req.fd            = fd;
+    req.count         = count;
+    req.offset        = offset;
+    req.reply_port    = (uint64_t)reply;
+
+    if (ipc_mqueue_send(vfs_port->ip_messages, &req, sizeof(req)) != MACH_MSG_SUCCESS)
+        return -1;
+
+    vfs_reply_msg_t rep;
+    mach_msg_size_t out_size = 0;
+    if (ipc_mqueue_receive(reply->ip_messages, &rep, sizeof(rep), &out_size, 1) != MACH_MSG_SUCCESS)
+        return -1;
+
+    if (rep.retcode != VFS_SUCCESS || rep.result < 0)
+        return -1;
+
+    if (rep.result > 0)
+        kmemcpy(buf, rep.data, (uint32_t)rep.result);
+
+    return rep.result;
+}
+
+static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, uint32_t *size_out)
+{
+    int fd = bsd_vfs_open(path);
+    if (fd < 0)
+        return -1;
+
+    uint32_t off = 0;
+    for (;;) {
+        uint32_t want = VFS_DATA_MAX;
+        if (off + want > dst_cap)
+            want = dst_cap - off;
+        if (want == 0)
+            return -1;
+
+        int n = bsd_vfs_read_chunk(fd, off, dst + off, want);
+        if (n < 0)
+            return -1;
+        if (n == 0)
+            break;
+        off += (uint32_t)n;
+    }
+
+    if (size_out)
+        *size_out = off;
+    return 0;
+}
+
+int bsd_exec_current(const char *path, struct interrupt_frame *frame)
+{
+    if (!path || !frame)
+        return -1;
+
+    struct thread *cur_th = sched_current();
+    if (!cur_th || !cur_th->th_task)
+        return -1;
+
+    struct task *task = cur_th->th_task;
+    uint8_t *image = (uint8_t *)kalloc(BSD_EXEC_MAX_IMAGE);
+    if (!image)
+        return -1;
+
+    uint32_t image_size = 0;
+    if (bsd_vfs_read_all(path, image, BSD_EXEC_MAX_IMAGE, &image_size) != 0)
+        return -1;
+
+    uint64_t new_cr3 = paging_create_task_pml4();
+    if (!new_cr3)
+        return -1;
+
+    struct vm_map *new_map = vm_map_create(0, 0xFFFFFFFF80000000ULL);
+    if (!new_map)
+        return -1;
+    new_map->pml4 = (uint64_t *)new_cr3;
+
+    struct vm_map *old_map = task->t_map;
+    uint64_t old_cr3 = task->t_cr3;
+    task->t_map = new_map;
+    task->t_cr3 = new_cr3;
+
+    uint64_t entry = 0;
+    if (elf_load(task, image, image_size, &entry) != KERN_SUCCESS) {
+        task->t_map = old_map;
+        task->t_cr3 = old_cr3;
+        return -1;
+    }
+
+    if (vm_map_enter(task->t_map, BSD_USER_STACK_BASE, BSD_USER_STACK_SIZE,
+                     VM_PROT_READ | VM_PROT_WRITE) != KERN_SUCCESS) {
+        task->t_map = old_map;
+        task->t_cr3 = old_cr3;
+        return -1;
+    }
+
+    uint64_t user_rsp = (BSD_USER_STACK_BASE + BSD_USER_STACK_SIZE) - 16;
+
+    frame->rip = entry;
+    frame->rsp = user_rsp;
+    frame->rax = 0;
+
+    __asm__ volatile ("movq %0, %%cr3" : : "r"(new_cr3) : "memory");
+
+    (void)old_map;
+    (void)old_cr3;
+    return 0;
+}
 
 /* -------------------------------------------------------------------------
  * bsd_server_main — BSD server thread entry point

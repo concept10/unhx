@@ -25,6 +25,18 @@ int main(void)
     const char *done = "[init] PASS — userspace task running\r\n";
     write(1, done, my_strlen(done));
 
+    long child = fork();
+    if (child >= 0) {
+        const char *fork_ok = "[init] PASS — fork syscall reachable\r\n";
+        write(1, fork_ok, my_strlen(fork_ok));
+    } else {
+        const char *fork_fail = "[init] FAIL — fork syscall failed\r\n";
+        write(1, fork_fail, my_strlen(fork_fail));
+    }
+
+    const char *exec_hint = "[init] info: run /bin/init.elf in shell to verify exec\r\n";
+    write(1, exec_hint, my_strlen(exec_hint));
+
     /* v0.5: enter the interactive shell (never returns) */
     shell_main();
     return 0;

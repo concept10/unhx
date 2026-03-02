@@ -16,6 +16,7 @@
 #include "platform/idt.h"
 #include "kern.h"
 #include "elf.h"
+#include "bsd/bsd_msg.h"
 
 extern void serial_putstr(const char *s);
 extern void serial_putchar(char c);
@@ -158,9 +159,11 @@ static int64_t sys_fork(struct interrupt_frame *frame)
 
 static int64_t sys_exec(struct interrupt_frame *frame)
 {
-    (void)frame;
-    /* Deferred to Phase 3 — requires VFS integration */
-    return -1;
+    const char *path = (const char *)frame->rdi;
+    if (!path || path[0] == '\0')
+        return -1;
+
+    return (int64_t)bsd_exec_current(path, frame);
 }
 
 /* -------------------------------------------------------------------------
