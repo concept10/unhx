@@ -91,6 +91,27 @@ int ramfs_close(int fd)
     return 0;
 }
 
+int ramfs_write(int fd, const void *buf, uint32_t count)
+{
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    /* For Phase 2: ramfs is read-only, write returns 0 (silent success) */
+    (void)buf;
+    (void)count;
+    return 0;
+}
+
+int ramfs_stat(int fd, uint32_t *size_out)
+{
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    if (size_out)
+        *size_out = files[fd].size;
+    return 0;
+}
+
 int ramfs_size(int fd)
 {
     if (fd < 0 || fd >= nfiles || !files[fd].active)

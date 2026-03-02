@@ -61,9 +61,9 @@ void vfs_server_main(void)
 
     /*
      * Message receive loop.
-     * Buffer sized for the largest request (vfs_read_msg_t).
+     * Buffer sized for the largest request (vfs_write_msg_t).
      */
-    uint8_t buf[sizeof(vfs_read_msg_t) + 16];
+    uint8_t buf[sizeof(vfs_write_msg_t) + 16];
 
     for (;;) {
         mach_msg_size_t msg_size = 0;
@@ -136,6 +136,49 @@ void vfs_server_main(void)
                 break;
             vfs_close_msg_t *req = (vfs_close_msg_t *)buf;
             ramfs_close(req->fd);
+            break;
+        }
+
+        case VFS_MSG_WRITE: {
+            if (msg_size < sizeof(vfs_write_msg_t))
+                break;
+            vfs_write_msg_t *req = (vfs_write_msg_t *)buf;
+
+            int n = ramfs_write(req->fd, req->data, req->count);
+
+            if (req->reply_port) {
+                vfs_reply_msg_t reply;
+                kmemset(&reply, 0, sizeof(reply));
+                reply.hdr.msgh_size = sizeof(reply);
+                reply.hdr.msgh_id   = VFS_MSG_REPLY;
+                reply.retcode       = (n >= 0) ? VFS_SUCCESS : VFS_BAD_FD;
+                reply.result        = (n >= 0) ? n : 0;
+
+                struct ipc_port *rp = (struct ipc_port *)req->reply_port;
+                ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+            }
+            break;
+        }
+
+        case VFS_MSG_STAT: {
+            if (msg_size < sizeof(vfs_stat_msg_t))
+                break;
+            vfs_stat_msg_t *req = (vfs_stat_msg_t *)buf;
+
+            uint32_t size = 0;
+            int ret = ramfs_stat(req->fd, &size);
+
+            if (req->reply_port) {
+                vfs_reply_msg_t reply;
+                kmemset(&reply, 0, sizeof(reply));
+                reply.hdr.msgh_size = sizeof(reply);
+                reply.hdr.msgh_id   = VFS_MSG_REPLY;
+                reply.retcode       = (ret >= 0) ? VFS_SUCCESS : VFS_BAD_FD;
+                reply.result        = size;
+
+                struct ipc_port *rp = (struct ipc_port *)req->reply_port;
+                ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+            }
             break;
         }
 
