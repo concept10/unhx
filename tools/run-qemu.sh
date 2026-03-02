@@ -29,7 +29,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/build"
-KERNEL_IMG="${BUILD_DIR}/unhx.elf"
+KERNEL_IMG="${BUILD_DIR}/kernel/unhx.elf"
+INITRD_IMG="${BUILD_DIR}/user/init.elf"
 
 DO_BUILD=1
 FORCE_TCG=0
@@ -47,14 +48,14 @@ done
 # ---------------------------------------------------------------------------
 if [[ $DO_BUILD -eq 1 ]]; then
     echo "[run-qemu] Configuring CMake build in ${BUILD_DIR} ..."
-    cmake -S "${REPO_ROOT}/kernel" -B "${BUILD_DIR}" \
+    cmake -S "${REPO_ROOT}" -B "${BUILD_DIR}" \
           -DCMAKE_TOOLCHAIN_FILE="${REPO_ROOT}/cmake/x86_64-elf-clang.cmake" \
           -DCMAKE_BUILD_TYPE=Debug \
           -DUNHOX_BOOT_TESTS=ON \
           --no-warn-unused-cli
 
-    echo "[run-qemu] Building UNHOX kernel ..."
-    cmake --build "${BUILD_DIR}" --target unhx.elf
+    echo "[run-qemu] Building UNHOX (kernel + userspace) ..."
+    cmake --build "${BUILD_DIR}"
 fi
 
 if [[ ! -f "${KERNEL_IMG}" ]]; then
@@ -98,6 +99,7 @@ exec qemu-system-x86_64 \
     "${ACCEL_FLAGS[@]}" \
     -m 256M \
     -kernel "${KERNEL_IMG}" \
+    -initrd "${INITRD_IMG}" \
     -serial stdio \
     -display none \
     -no-reboot \

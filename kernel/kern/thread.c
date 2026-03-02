@@ -126,6 +126,70 @@ struct thread *thread_create(struct task *task,
     return th;
 }
 
+struct thread *thread_create_user(struct task *task,
+                                  uint64_t user_entry,
+                                  uint64_t user_rsp)
+{
+    if (!task)
+        return (void *)0;
+
+    struct thread *th = thread_pool_alloc();
+    if (!th)
+        return (void *)0;
+
+    th->th_id    = next_thread_id++;
+    th->th_state = THREAD_STATE_RUNNABLE;
+    th->th_task  = task;
+
+    /* Allocate a kernel stack for syscall / interrupt handling */
+    uint32_t stack_size = THREAD_STACK_SIZE;
+    void *stack = kalloc(stack_size);
+    if (!stack) {
+        th->th_active = 0;
+        return (void *)0;
+    }
+
+    th->th_stack_base = (uint64_t)stack;
+    th->th_stack_size = stack_size;
+    th->th_stack_top  = (uint64_t)stack + stack_size;
+
+    /*
+     * Build the initial stack frame for user_entry_trampoline.
+     *
+     * context_switch_asm pops 6 callee-saved registers and then `ret`s.
+     * We pre-build the frame so that:
+     *   r15 = 0, r14 = 0, r13 = user_rsp, r12 = user_entry,
+     *   rbp = 0, rbx = 0
+     * and the return address is user_entry_trampoline.
+     *
+     * user_entry_trampoline reads r12 (user RIP) and r13 (user RSP)
+     * and executes iretq to jump to ring 3.
+     */
+    uint64_t sp = th->th_stack_top & ~0xFULL;   /* 16-byte align */
+
+    sp -= 8; *(uint64_t *)sp = 0;                          /* padding      */
+    sp -= 8; *(uint64_t *)sp = (uint64_t)user_entry_trampoline; /* ret addr */
+    sp -= 8; *(uint64_t *)sp = 0;                          /* rbx          */
+    sp -= 8; *(uint64_t *)sp = 0;                          /* rbp          */
+    sp -= 8; *(uint64_t *)sp = user_entry;                 /* r12 = RIP    */
+    sp -= 8; *(uint64_t *)sp = user_rsp;                   /* r13 = RSP    */
+    sp -= 8; *(uint64_t *)sp = 0;                          /* r14          */
+    sp -= 8; *(uint64_t *)sp = 0;                          /* r15          */
+
+    th->th_cpu_state.rsp = sp;
+
+    th->th_priority = 10;
+    th->th_quantum  = 10;
+
+    th->th_task_next = task->t_threads;
+    task->t_threads  = th;
+    task->t_thread_count++;
+
+    th->th_sched_next = (void *)0;
+
+    return th;
+}
+
 void thread_destroy(struct thread *th)
 {
     if (!th || !th->th_active)

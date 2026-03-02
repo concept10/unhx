@@ -131,6 +131,20 @@ void thread_destroy(struct thread *th);
 void thread_switch(struct thread *from, struct thread *to);
 
 /*
+ * thread_create_user — create a ring-3 user thread.
+ *
+ * task:        the owning task (must have a per-task PML4 and user stack mapped)
+ * user_entry:  ring-3 entry point virtual address (from ELF e_entry)
+ * user_rsp:    ring-3 initial stack pointer
+ *
+ * A kernel stack is allocated for syscall/interrupt handling.  When first
+ * scheduled, the thread enters ring 3 via iretq (user_entry_trampoline).
+ */
+struct thread *thread_create_user(struct task *task,
+                                  uint64_t user_entry,
+                                  uint64_t user_rsp);
+
+/*
  * context_switch_asm — low-level assembly context switch.
  * Saves callee-saved registers of 'from' and restores 'to'.
  * Called by thread_switch().
@@ -140,5 +154,8 @@ void thread_switch(struct thread *from, struct thread *to);
  *   RSI = pointer to to->th_cpu_state
  */
 extern void context_switch_asm(struct cpu_state *from, struct cpu_state *to);
+
+/* Assembly trampoline that enters ring 3 via iretq (context_switch.S). */
+extern void user_entry_trampoline(void);
 
 #endif /* THREAD_H */

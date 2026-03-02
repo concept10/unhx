@@ -1,14 +1,13 @@
 /*
  * servers/bootstrap/registry.c — Service name → port registry for UNHOX
  *
- * The registry is a simple array-based map from service names to port
- * handles.  In a real system this would be backed by IPC (the bootstrap
- * server would receive registration and lookup messages on its bootstrap
- * port).  For Phase 1 we implement it as a direct C API callable from
- * the kernel for testing.
+ * The registry maps service names (strings) to port handles (ipc_port *,
+ * carried as uint64_t to avoid a kernel header dependency in the .h).
  *
- * TODO (Phase 2): Convert to a message-handling loop that receives
- *                 MIG-generated bootstrap RPCs on the bootstrap port.
+ * In a real system the bootstrap server would receive registration and
+ * lookup requests as Mach messages on its bootstrap port and update this
+ * registry in response.  For UNHOX Phase 2, the message dispatch happens
+ * in bootstrap.c; this file is the backing store.
  *
  * Reference: OSF MK bootstrap/bootstrap_defs.h for the message format.
  */
@@ -42,7 +41,7 @@ static void bs_strncpy(char *dest, const char *src, int n)
 
 struct service_entry {
     char        name[BOOTSTRAP_NAME_MAX];
-    uint32_t    port;
+    uint64_t    port;       /* ipc_port * carried as opaque integer */
     int         active;     /* 1 = registered and active */
     int         checked_in; /* 1 = server has claimed this slot */
 };
@@ -65,7 +64,7 @@ void bootstrap_init(void)
     registry_count = 0;
 }
 
-int bootstrap_register(const char *name, uint32_t port)
+int bootstrap_register(const char *name, uint64_t port)
 {
     if (!name)
         return BOOTSTRAP_NOT_PRIVILEGED;
@@ -94,7 +93,7 @@ int bootstrap_register(const char *name, uint32_t port)
     return BOOTSTRAP_NO_MEMORY;
 }
 
-int bootstrap_lookup(const char *name, uint32_t *out_port)
+int bootstrap_lookup(const char *name, uint64_t *out_port)
 {
     if (!name || !out_port)
         return BOOTSTRAP_UNKNOWN_SERVICE;
@@ -109,7 +108,7 @@ int bootstrap_lookup(const char *name, uint32_t *out_port)
     return BOOTSTRAP_UNKNOWN_SERVICE;
 }
 
-int bootstrap_checkin(const char *name, uint32_t *out_port)
+int bootstrap_checkin(const char *name, uint64_t *out_port)
 {
     if (!name || !out_port)
         return BOOTSTRAP_UNKNOWN_SERVICE;
