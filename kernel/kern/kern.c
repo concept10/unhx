@@ -36,6 +36,14 @@ extern void serial_putstr(const char *s);
 /* Bootstrap server (Phase 2: real Mach message loop as a kernel thread) */
 #include "bootstrap/bootstrap.h"
 
+/* VFS and BSD servers (Phase 2) */
+#include "vfs/vfs_msg.h"
+#include "bsd/bsd_msg.h"
+
+/* Thread entry points declared in their respective server files */
+extern void vfs_server_main(void);
+extern void bsd_server_main(void);
+
 void kern_init(void)
 {
     /* Create the kernel task (task 0) with its ipc_space */
@@ -230,6 +238,96 @@ done:
         __asm__ volatile ("hlt");
 }
 
+/* -------------------------------------------------------------------------
+ * VFS test thread — exercises the VFS server via Mach IPC.
+ *
+ * Opens "/test.txt" on the VFS server, reads its content, and verifies the
+ * reply. Uses the same non-blocking poll idiom as bootstrap_ipc_test().
+ * ------------------------------------------------------------------------- */
+
+static void vfs_test_thread(void)
+{
+    /* Spin until the VFS server has set vfs_port */
+    while (!vfs_port)
+        for (volatile int i = 0; i < 10000; i++)
+            ;
+
+    struct task *ktask = kernel_task_ptr();
+
+    /* ---- OPEN /test.txt ---- */
+    struct ipc_port *open_reply = ipc_port_alloc(ktask);
+    if (!open_reply) {
+        serial_putstr("[vfs-test] FAIL — could not allocate open reply port\r\n");
+        goto done;
+    }
+
+    vfs_open_msg_t open_req;
+    kmemset(&open_req, 0, sizeof(open_req));
+    open_req.hdr.msgh_size = sizeof(open_req);
+    open_req.hdr.msgh_id   = VFS_MSG_OPEN;
+    kstrncpy(open_req.path, "/test.txt", VFS_PATH_MAX);
+    open_req.reply_port    = (uint64_t)open_reply;
+
+    ipc_mqueue_send(vfs_port->ip_messages, &open_req, sizeof(open_req));
+
+    /* Poll for open reply */
+    uint8_t rbuf[sizeof(vfs_reply_msg_t)];
+    mach_msg_size_t out_size = 0;
+    mach_msg_return_t mr;
+    do {
+        mr = ipc_mqueue_receive(open_reply->ip_messages,
+                                rbuf, sizeof(rbuf), &out_size, 0);
+        if (mr != MACH_MSG_SUCCESS)
+            for (volatile int s = 0; s < 10000; s++)
+                ;
+    } while (mr != MACH_MSG_SUCCESS);
+
+    vfs_reply_msg_t *open_rep = (vfs_reply_msg_t *)rbuf;
+    if (open_rep->retcode != VFS_SUCCESS) {
+        serial_putstr("[vfs-test] FAIL — open returned error\r\n");
+        goto done;
+    }
+    int fd = open_rep->result;
+
+    /* ---- READ ---- */
+    struct ipc_port *read_reply = ipc_port_alloc(ktask);
+    if (!read_reply) {
+        serial_putstr("[vfs-test] FAIL — could not allocate read reply port\r\n");
+        goto done;
+    }
+
+    vfs_read_msg_t read_req;
+    kmemset(&read_req, 0, sizeof(read_req));
+    read_req.hdr.msgh_size = sizeof(read_req);
+    read_req.hdr.msgh_id   = VFS_MSG_READ;
+    read_req.fd            = fd;
+    read_req.count         = 32;
+    read_req.offset        = 0;
+    read_req.reply_port    = (uint64_t)read_reply;
+
+    ipc_mqueue_send(vfs_port->ip_messages, &read_req, sizeof(read_req));
+
+    /* Poll for read reply */
+    do {
+        mr = ipc_mqueue_receive(read_reply->ip_messages,
+                                rbuf, sizeof(rbuf), &out_size, 0);
+        if (mr != MACH_MSG_SUCCESS)
+            for (volatile int s = 0; s < 10000; s++)
+                ;
+    } while (mr != MACH_MSG_SUCCESS);
+
+    vfs_reply_msg_t *read_rep = (vfs_reply_msg_t *)rbuf;
+    if (read_rep->retcode == VFS_SUCCESS && read_rep->result > 0) {
+        serial_putstr("[vfs-test] PASS — VFS open+read works\r\n");
+    } else {
+        serial_putstr("[vfs-test] FAIL — read returned error\r\n");
+    }
+
+done:
+    for (;;)
+        __asm__ volatile ("hlt");
+}
+
 void kernel_main(uint32_t mb_info_phys)
 {
     serial_putstr("\r\n");
@@ -337,6 +435,30 @@ void kernel_main(uint32_t mb_info_phys)
         struct thread *th_bst = thread_create(ktask, bootstrap_ipc_test, 0);
         if (th_bst)
             sched_enqueue(th_bst);
+
+        /*
+         * VFS server thread — initialises ramfs, registers as "com.unhox.vfs"
+         * with bootstrap, then blocks waiting for open/read/close requests.
+         */
+        struct thread *th_vfs = thread_create(ktask, vfs_server_main, 0);
+        if (th_vfs)
+            sched_enqueue(th_vfs);
+
+        /*
+         * BSD server thread — provides fd-based I/O (fd 0/1/2 → serial),
+         * registers as "com.unhox.bsd" with bootstrap.
+         */
+        struct thread *th_bsd = thread_create(ktask, bsd_server_main, 0);
+        if (th_bsd)
+            sched_enqueue(th_bsd);
+
+        /*
+         * VFS test thread — sends VFS_OPEN + VFS_READ to the VFS server,
+         * verifies the reply, and prints PASS/FAIL.
+         */
+        struct thread *th_vfs_test = thread_create(ktask, vfs_test_thread, 0);
+        if (th_vfs_test)
+            sched_enqueue(th_vfs_test);
 
         /*
          * Blocking IPC test:
