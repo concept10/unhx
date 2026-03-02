@@ -99,9 +99,16 @@ set(KERNEL_SOURCES
     kern/elf_load.c
     kern/syscall.c
 
-    # Bootstrap server (Phase 1: linked into kernel)
+    # Bootstrap server (Phase 2: blocking Mach message loop)
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/registry.c
+
+    # VFS server + ramfs (Phase 2)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/vfs/vfs_server.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/vfs/ramfs.c
+
+    # BSD server (Phase 2)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/bsd_server.c
 )
 
 if(UNHOX_BOOT_TESTS)
