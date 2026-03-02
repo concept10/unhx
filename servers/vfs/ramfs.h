@@ -33,4 +33,10 @@ int ramfs_close(int fd);
 /* Return the size of a file, or -1 on bad fd. */
 int ramfs_size(int fd);
 
+/* Write up to `count` bytes to file `fd`. Returns bytes written, -1 on error. */
+int ramfs_write(int fd, const void *buf, uint32_t count);
+
+/* Retrieve file size for fd. Returns 0 on success, -1 on bad fd. */
+int ramfs_stat(int fd, uint32_t *size_out);
+
 #endif /* RAMFS_H */

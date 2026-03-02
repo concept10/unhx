@@ -25,7 +25,9 @@ struct ipc_port;
 #define VFS_MSG_OPEN    200
 #define VFS_MSG_READ    201
 #define VFS_MSG_CLOSE   202
-#define VFS_MSG_REPLY   203
+#define VFS_MSG_WRITE   203
+#define VFS_MSG_STAT    204
+#define VFS_MSG_REPLY   205
 
 /* Path and data size limits */
 #define VFS_PATH_MAX    128
@@ -78,15 +80,40 @@ typedef struct {
 } vfs_close_msg_t;
 
 /*
+ * vfs_write_msg_t — write bytes to a file.
+ * Server replies with vfs_reply_msg_t (result = bytes written or error).
+ */
+typedef struct {
+    mach_msg_header_t   hdr;
+    int32_t             fd;
+    uint32_t            count;          /* bytes to write */
+    uint8_t             data[VFS_DATA_MAX];
+    uint64_t            reply_port;
+} vfs_write_msg_t;
+
+/*
+ * vfs_stat_msg_t — get file metadata.
+ * Server replies with vfs_reply_msg_t (result = size, retcode = success).
+ */
+typedef struct {
+    mach_msg_header_t   hdr;
+    int32_t             fd;
+    int32_t             _pad;
+    uint64_t            reply_port;
+} vfs_stat_msg_t;
+
+/*
  * vfs_reply_msg_t — reply from VFS server to client.
  *
  * For VFS_MSG_OPEN:  retcode, result = fd (>= 0), data unused.
  * For VFS_MSG_READ:  retcode, result = bytes read, data = file content.
+ * For VFS_MSG_WRITE: retcode, result = bytes written.
+ * For VFS_MSG_STAT:  retcode, result = file size.
  */
 typedef struct {
     mach_msg_header_t   hdr;
     int32_t             retcode;        /* VFS_SUCCESS or error code */
-    int32_t             result;         /* fd or byte count */
+    int32_t             result;         /* fd, byte count, or size */
     uint8_t             data[VFS_DATA_MAX];
 } vfs_reply_msg_t;
 
