@@ -195,12 +195,23 @@ static void bootstrap_ipc_test(void)
 
     ipc_mqueue_send(bootstrap_port->ip_messages, &lkup, sizeof(lkup));
 
-    /* Block on the reply */
+    /*
+     * Poll (non-blocking) until the reply arrives.
+     * Bootstrap may process LOOKUP in the same scheduler run in which the
+     * test thread sent both messages, meaning the reply arrives before we
+     * even call receive.  Non-blocking poll handles both cases cleanly.
+     */
     uint8_t rbuf[sizeof(bootstrap_reply_msg_t)];
     mach_msg_size_t out_size = 0;
-    mach_msg_return_t mr = ipc_mqueue_receive(
-        reply_port->ip_messages, rbuf, sizeof(rbuf), &out_size,
-        1 /* blocking */);
+    mach_msg_return_t mr;
+    do {
+        mr = ipc_mqueue_receive(
+            reply_port->ip_messages, rbuf, sizeof(rbuf), &out_size,
+            0 /* non-blocking */);
+        if (mr != MACH_MSG_SUCCESS)
+            for (volatile int spin = 0; spin < 10000; spin++)
+                ;
+    } while (mr != MACH_MSG_SUCCESS);
 
     if (mr == MACH_MSG_SUCCESS) {
         bootstrap_reply_msg_t *reply = (bootstrap_reply_msg_t *)rbuf;

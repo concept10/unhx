@@ -1,0 +1,104 @@
+
+================================================
+  UNHOX — U Is Not Hurd Or X
+  Mach microkernel — Phase 1
+================================================
+[UNHOX] kernel_main entered
+[UNHOX] initialising platform...
+[UNHOX] initialising kernel heap...
+[UNHOX] initialising IPC subsystem...
+[UNHOX] initialising VM subsystem...
+[UNHOX] activating zone allocator...
+[UNHOX] initialising paging...
+[UNHOX] initialising kernel core...
+[UNHOX] kernel task (task 0) created
+[UNHOX] all subsystems initialised
+
+[UNHOX IPC] beginning IPC smoke test...
+[UNHOX IPC] task_a and task_b created
+[UNHOX IPC] port allocated in task_a (receive right)
+[UNHOX IPC] send right granted to task_b
+[UNHOX IPC] task_b sent message
+[UNHOX IPC] message received: hello
+[UNHOX IPC] magic: 0x00000000deadbeef (correct)
+[UNHOX] Phase 1 complete. Mach IPC operational.
+
+
+========================================
+ UNHOX IPC Milestone Test (v0.2)
+========================================
+  [PASS] task_a created
+  [PASS] task_b created
+  [PASS] task_a has ipc_space
+  [PASS] task_b has ipc_space
+  [PASS] alloc port name in task_a
+  [PASS] port object allocated
+  [PASS] alloc port name in task_b
+  [PASS] mach_msg_send returns KERN_SUCCESS
+  [PASS] mach_msg_receive returns KERN_SUCCESS
+  [PASS] received magic == 0xDEADBEEF
+  [PASS] received message == "phase1_ok"
+  [PASS] received size matches sent size
+  received magic: 0x00000000deadbeef
+  received text:  phase1_ok
+  [PASS] send without right returns error
+========================================
+ Results: 13 passed, 0 failed, 13 total
+ STATUS: PASS
+========================================
+[UNHOX] IPC milestone v0.2 PASSED.
+
+[UNHOX] All milestone tests PASSED.
+
+========================================
+ UNHOX IPC Performance Baseline
+========================================
+  Setup complete. Running 50 iterations...
+
+  send      :  min=11000  avg=13420  max=22000 cycles  (n=50)
+  receive   :  min=0  avg=1020  max=14000 cycles  (n=50)
+  round-trip:  min=13000  avg=13860  max=29000 cycles  (n=50)
+
+  Note: Phase 1 (non-blocking, no contention, kfree=no-op)
+  These are lower-bound figures.
+========================================
+[UNHOX] IPC performance baseline recorded.
+
+[UNHOX] creating test threads...
+[UNHOX] threads created, entering scheduler
+
+[UNHOX] loading userspace init...
+[UNHOX] found init module, creating user task
+[UNHOX] ELF loaded, setting up user stack
+[UNHOX] init task queued — will run in ring 3
+[UNHOX] enabling interrupts, entering scheduler
+[bootstrap] initialising bootstrap server
+[bootstrap] bootstrap server ready
+[bs-test] started
+[bs-test] bootstrap_port ready
+[bs-test] sending REGISTER
+[bs-test] sending LOOKUP
+[bs-test] polling for reply
+[ipc-block] receiver: blocking on receive...
+[ipc-block] sender: sending message...
+[ipc-block] sender: message sent
+[sched] thread A running
+[sched] thread A running
+[sched] thread A running
+[sched] thread A running
+[sched] thread A running
+[sched] thread A done
+[sched] thread B running
+[sched] thread B running
+[sched] thread B running
+[sched] thread B running
+[sched] thread B running
+[sched] thread B done
+Hello from userspace!
+[init] PASS — userspace task running
+[bootstrap] REGISTER: com.unhox.test_svc
+[bootstrap] LOOKUP: com.unhox.test_svc -> found
+[bs-test] reply received
+[bs-test] PASS — bootstrap IPC register+lookup works
+[ipc-block] receiver: got message: hello_blocking
+[ipc-block] PASS — blocking IPC works
