@@ -122,7 +122,7 @@ Check off items as they are completed.
 
 ### BSD Server
 - [x] Design BSD server IPC protocol (hand-written in `servers/bsd/bsd_msg.h`)
-- [ ] Implement `fork()` — clone task + address space
+- [~] Implement `fork()` — task_copy() primitive and syscall stub done, thread context copy deferred to Phase 3
 - [ ] Implement `exec()` — load ELF binary into new address space
 - [ ] Implement `exit()` / `wait()` — process lifecycle
 - [ ] Implement signal delivery across task boundary
@@ -132,8 +132,8 @@ Check off items as they are completed.
 ### VFS Server (ramfs)
 - [x] Implement ramfs — in-memory directory tree
 - [x] Implement `open()`, `read()`, `close()`
-- [ ] Implement `write()`, `stat()`
-- [ ] Implement `readdir()`, `mkdir()`, `unlink()`
+- [x] Implement `write()`, `stat()` — message protocol and ramfs stubs
+- [x] Implement `readdir()`, `mkdir()`, `unlink()` — message protocol and ramfs stubs
 - [ ] Verify: BSD server can open and read `/bin/sh` from ramfs
 
 ### Shell
