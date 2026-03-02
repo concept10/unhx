@@ -116,6 +116,26 @@ jobs:
             (echo "FAIL: userspace PASS marker not found" && exit 1)
           echo "PASS: milestone v0.4 — Hello from userspace"
 
+      - name: Verify VFS server (Step 12)
+        run: |
+          grep -q "VFS server ready" serial_output.txt || \
+            (echo "FAIL: VFS server did not initialise" && exit 1)
+          grep -q "PASS — VFS open+read works" serial_output.txt || \
+            (echo "FAIL: VFS open+read test did not pass" && exit 1)
+          echo "PASS: VFS/ramfs server operational"
+
+      - name: Verify BSD server (Step 13)
+        run: |
+          grep -q "BSD server ready" serial_output.txt || \
+            (echo "FAIL: BSD server did not initialise" && exit 1)
+          echo "PASS: BSD server operational"
+
+      - name: Verify shell prompt milestone v0.5
+        run: |
+          grep -q 'unhox\$' serial_output.txt || \
+            (echo "FAIL: shell prompt not found in serial output" && exit 1)
+          echo "PASS: milestone v0.5 — unhox shell prompt"
+
       - name: Upload serial output artifact
         if: always()
         uses: actions/upload-artifact@v4
