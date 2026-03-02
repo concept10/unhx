@@ -15,39 +15,43 @@ Check off items as they are completed.
 - [x] Create `docs/`, `tools/`, `tests/` directories
 - [x] Write README files for all directories
 
-### Git Submodules — Framework Layer
+### Git Submodules — Framework Layer ✅
 - [x] Add `gnustep/libobjc2` as submodule at `frameworks/objc-runtime/`
 - [x] Add `gnustep/libs-base` as submodule at `frameworks/Foundation/`
 - [x] Add `gnustep/libs-gui` as submodule at `frameworks/AppKit/`
-- [ ] Add `apple/swift-corelibs-libdispatch` as submodule at `frameworks/libdispatch/`
-- [ ] Add `apple/swift-corelibs-foundation` as submodule at `frameworks/CoreFoundation/`
+- [x] Add `apple/swift-corelibs-libdispatch` as submodule at `frameworks/libdispatch/`
+- [x] Add `apple/swift-corelibs-foundation` as submodule at `frameworks/CoreFoundation/`
 
 ### Source Archaeology — Kernel References
 - [ ] Mirror / obtain CMU Mach 3.0 source tree → `archive/cmu-mach/`
   - Source: http://www.cs.utah.edu/flux/mach4/ or bitsavers
   - Key files: `kernel/`, `include/mach/`, `bootstrap/`
+  - Run: `./tools/mirror-archives.sh --cmu`
 - [ ] Mirror / obtain OSF MK6 or MK7 source → `archive/osf-mk/`
   - Source: MkLinux archives, OSF/RI mirrors
+  - Run: `./tools/mirror-archives.sh --osf`
 - [ ] Mirror Utah OSKit + Lites → `archive/utah-oskit/`
   - Source: http://www.cs.utah.edu/flux/oskit/ and flux/lites
+  - Run: `./tools/mirror-archives.sh --utah`
 - [ ] Archive NeXTSTEP/OPENSTEP documentation → `archive/next-docs/`
   - Source: https://bitsavers.org/pdf/next/ and archive.org
+  - Run: `./tools/mirror-archives.sh --next`
 
-### Build System
-- [ ] Create `CMakeLists.txt` at root for cross-compilation setup
-- [ ] Create `tools/cross/` with cross-compiler toolchain instructions
-  - Target: `x86_64-elf-gcc` (bare metal, no OS)
-- [ ] Create `tools/qemu-run.sh` script for QEMU boot testing
-- [ ] Create Nix flake (`flake.nix`) for reproducible dev environment
-- [ ] Document build prerequisites in `docs/build-setup.md`
+### Build System ✅
+- [x] Create `CMakeLists.txt` at root for cross-compilation setup
+- [x] Create `tools/cross/` with cross-compiler toolchain instructions
+  - Target: `x86_64-unknown-elf` via Clang/LLD (see `cmake/x86_64-elf-clang.cmake`)
+- [x] Create `tools/qemu-run.sh` script for QEMU boot testing
+- [x] Create Nix flake (`flake.nix`) for reproducible dev environment
+- [x] Document build prerequisites in `docs/build-setup.md`
 
-### Documentation
+### Documentation ✅
 - [x] Write `docs/architecture.md` — system architecture overview
 - [x] Write `docs/roadmap.md` — development roadmap with milestones
-- [ ] Write `docs/sources.md` — complete source inventory with licenses
-- [ ] Write `docs/ipc-design.md` — IPC subsystem design decisions
-- [ ] Write `docs/bsd-server-design.md` — BSD server architecture and hard problems
-- [ ] Create `docs/rfcs/` directory and write first RFC (RFC-0001: IPC message format)
+- [x] Write `docs/sources.md` — complete source inventory with licenses
+- [x] Write `docs/ipc-design.md` — IPC subsystem design decisions
+- [x] Write `docs/bsd-server-design.md` — BSD server architecture and hard problems
+- [x] Create `docs/rfcs/` directory and write first RFC (RFC-0001: IPC message format)
 
 ---
 

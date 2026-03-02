@@ -13,7 +13,12 @@
 #   brew install llvm qemu
 
 cmake_minimum_required(VERSION 3.20)
-project(unhx_kernel C ASM)
+
+# When built standalone (cmake -S kernel -B build), define the project here.
+# When built via the root CMakeLists.txt, the project is already defined.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    project(unhx_kernel C ASM)
+endif()
 
 # ---------------------------------------------------------------------------
 # Language standard
