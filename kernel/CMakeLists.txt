@@ -97,6 +97,7 @@ set(KERNEL_SOURCES
     kern/sched.c
     kern/kernel_task.c
     kern/elf_load.c
+    kern/syscall.c
 
     # Bootstrap server (Phase 1: linked into kernel)
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap.c

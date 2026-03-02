@@ -10,6 +10,7 @@
 #include "task.h"
 #include "kalloc.h"
 #include "klib.h"
+#include "platform/gdt.h"
 
 /* Static pool of threads for Phase 1 */
 static struct thread thread_pool[MAX_THREADS];
@@ -163,6 +164,12 @@ void thread_switch(struct thread *from, struct thread *to)
         __asm__ volatile ("movq %0, %%cr3"
                           : : "r"(to->th_task->t_cr3) : "memory");
     }
+
+    /*
+     * Update TSS RSP0 so that ring 3 → ring 0 transitions (int, exceptions)
+     * land on the new thread's kernel stack.
+     */
+    tss_set_rsp0(to->th_stack_top);
 
     context_switch_asm(&from->th_cpu_state, &to->th_cpu_state);
 }
