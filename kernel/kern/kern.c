@@ -36,6 +36,44 @@ void kern_init(void)
     sched_init();
 }
 
+/*
+ * Scheduler test threads — print alternating output to verify that
+ * the PIT timer interrupt drives preemptive context switching.
+ * Each thread loops, printing its label every ~500 ms (50 iterations
+ * of a busy wait calibrated to roughly 10 ms each).
+ */
+static volatile int sched_test_done;
+
+static void busy_wait(void)
+{
+    for (volatile int i = 0; i < 500000; i++)
+        ;
+}
+
+void sched_test_thread_a(void)
+{
+    for (int i = 0; i < 5; i++) {
+        serial_putstr("[sched] thread A running\r\n");
+        busy_wait();
+    }
+    serial_putstr("[sched] thread A done\r\n");
+    sched_test_done++;
+    for (;;)
+        __asm__ volatile ("hlt");
+}
+
+void sched_test_thread_b(void)
+{
+    for (int i = 0; i < 5; i++) {
+        serial_putstr("[sched] thread B running\r\n");
+        busy_wait();
+    }
+    serial_putstr("[sched] thread B done\r\n");
+    sched_test_done++;
+    for (;;)
+        __asm__ volatile ("hlt");
+}
+
 void kernel_main(void)
 {
     serial_putstr("\r\n");
@@ -103,8 +141,36 @@ void kernel_main(void)
     ipc_perf_run();
 #endif
 
-    /* Halt — preemptive scheduler loop goes here in Phase 2 */
-    serial_putstr("\r\n[UNHOX] halting (cooperative scheduling only in Phase 1)\r\n");
-    for (;;)
-        __asm__ volatile ("hlt");
+    /*
+     * Preemptive scheduling test:
+     * Create two threads that print alternating output, driven by
+     * the PIT timer interrupt (no explicit yield).
+     */
+    serial_putstr("\r\n[UNHOX] creating scheduler test threads...\r\n");
+    {
+        struct task *ktask = kernel_task_ptr();
+
+        /*
+         * Create a "boot" thread representing the current execution context.
+         * This becomes the idle thread once sched_run() enters the halt loop.
+         */
+        struct thread *boot_th = thread_create(ktask, (void *)0, 0);
+        if (boot_th)
+            sched_set_current(boot_th);
+
+        /* Thread A: prints "A" periodically */
+        struct thread *th_a = thread_create(ktask, sched_test_thread_a, 0);
+        if (th_a)
+            sched_enqueue(th_a);
+
+        /* Thread B: prints "B" periodically */
+        struct thread *th_b = thread_create(ktask, sched_test_thread_b, 0);
+        if (th_b)
+            sched_enqueue(th_b);
+
+        serial_putstr("[UNHOX] threads created, entering scheduler\r\n");
+    }
+
+    /* Enable interrupts and enter the scheduler — never returns */
+    sched_run();
 }
