@@ -8,11 +8,12 @@
  * Sequence:
  *   1. Multiboot1 header (with address tag) — recognized by GRUB / QEMU
  *   2. _start — entry point; entered in 32-bit protected mode
- *   3. Set up identity-mapped page tables covering the first 2 MB
- *   4. Enable PAE, load CR3, enable long mode (EFER.LME), enable paging
- *   5. Far jump into 64-bit code segment (long_mode_entry)
- *   6. Load segment registers and set up a 16 KB stack
- *   7. Zero the BSS section
+ *   3. Zero BSS (must happen before page tables are set up, since the
+ *      boot page tables live in BSS)
+ *   4. Set up identity-mapped page tables covering the first 2 MB
+ *   5. Enable PAE, load CR3, enable long mode (EFER.LME), enable paging
+ *   6. Far jump into 64-bit code segment (long_mode_entry)
+ *   7. Load segment registers and set up a 16 KB stack
  *   8. Call kernel_main() — defined in kernel/kern/kern.c
  *
  * Reference: AMD64 Architecture Programmer's Manual Vol. 2, §14.6;
@@ -99,6 +100,21 @@ _start:
     movl    %ebx, %esi
 
     /* ----------------------------------------------------------------
+     * Zero the BSS section (in 32-bit mode, before paging).
+     *
+     * CRITICAL: this must happen before setting up boot page tables,
+     * because boot_pml4/boot_pdpt/boot_pd live in BSS.  If we zeroed
+     * BSS after enabling paging, we'd destroy the page tables that
+     * paging depends on, causing a triple fault.
+     * ---------------------------------------------------------------- */
+    movl    $__bss_start, %edi
+    movl    $__bss_end, %ecx
+    subl    %edi, %ecx              /* byte count                            */
+    shrl    $2, %ecx                /* convert to 4-byte dwords              */
+    xorl    %eax, %eax
+    rep stosl                       /* zero BSS (32-bit stosd)               */
+
+    /* ----------------------------------------------------------------
      * Build minimal identity-mapped page tables (physical == virtual
      * for the first 2 MB) so that paging can be enabled while the CPU
      * is still executing from physical addresses in the low 2 MB.
@@ -173,19 +189,6 @@ long_mode_entry:
 
     /* Establish the initial C stack (grows downward from stack_top) */
     movq    $stack_top, %rsp
-
-    /* ----------------------------------------------------------------
-     * Zero the BSS section.
-     * The linker script (linker.ld) exports __bss_start and __bss_end.
-     * We clear it before any C code runs so that uninitialized globals
-     * are guaranteed to be zero, as the C standard requires.
-     * ---------------------------------------------------------------- */
-    movq    $__bss_start, %rdi
-    movq    $__bss_end,   %rcx
-    subq    %rdi, %rcx              /* number of bytes to zero               */
-    xorl    %eax, %eax              /* fill value = 0                        */
-    shrq    $3, %rcx                /* convert bytes → 8-byte quads          */
-    rep stosq
 
     /*
      * Call kernel_main() — defined in kernel/kern/kern.c.
