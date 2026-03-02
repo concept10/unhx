@@ -163,16 +163,32 @@ void isr_dispatch(struct interrupt_frame *frame)
         return;
     }
 
+    /* System call: int 0x80 */
+    if (vec == SYSCALL_VECTOR) {
+        extern void syscall_dispatch(struct interrupt_frame *frame);
+        syscall_dispatch(frame);
+        return;
+    }
+
     /* Unhandled vector — just return */
 }
 
 void idt_init(void)
 {
-    /* Install all 256 ISR stubs */
+    /* Install all 256 ISR stubs as interrupt gates (DPL=0) */
     for (int i = 0; i < IDT_ENTRIES; i++) {
         idt_set_gate((uint8_t)i, isr_stub_table[i],
                      GDT_SELECTOR_CODE, IDT_GATE_INTERRUPT);
     }
+
+    /*
+     * Vector 0x80 — system call trap gate (DPL=3).
+     * User-mode code can trigger this via `int $0x80`.
+     * It is a trap gate (not interrupt gate) so interrupts remain enabled
+     * during syscall processing.
+     */
+    idt_set_gate(SYSCALL_VECTOR, isr_stub_table[SYSCALL_VECTOR],
+                 GDT_SELECTOR_CODE, IDT_GATE_USER_TRAP);
 
     /* Load the IDTR */
     idt_desc.limit = (uint16_t)(sizeof(idt_table) - 1);

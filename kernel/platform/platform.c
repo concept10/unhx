@@ -56,6 +56,14 @@ void serial_putchar(char c)
     outb(COM1_PORT, (unsigned char)c);
 }
 
+char serial_getchar(void)
+{
+    /* Check if data is available (bit 0 of LSR) */
+    if ((inb(COM1_PORT + 5) & 0x01) == 0)
+        return 0;  /* no data */
+    return (char)inb(COM1_PORT);
+}
+
 void serial_putstr(const char *s)
 {
     while (*s)
