@@ -9,8 +9,6 @@
 
 #include "vm.h"
 #include "vm_page.h"
-#include "vm_map.h"
-#include "kern/kalloc.h"
 
 void vm_init(vm_address_t base, vm_size_t size)
 {
@@ -36,21 +34,4 @@ void vm_init(vm_address_t base, vm_size_t size)
      *   2. Enable full 4-level x86-64 paging via paging_init().
      *   3. Remove the boot.S identity map.
      */
-}
-
-struct vm_map *vm_map_create(vm_address_t min, vm_address_t max)
-{
-    struct vm_map *map = (struct vm_map *)kalloc(sizeof(struct vm_map));
-    if (!map)
-        return (void *)0;
-
-    for (uint32_t i = 0; i < VM_MAP_MAX_ENTRIES; i++)
-        map->entries[i].vme_in_use = 0;
-
-    map->entry_count = 0;
-    map->min_offset  = min;
-    map->max_offset  = max;
-    map->pml4        = (void *)0;
-
-    return map;
 }

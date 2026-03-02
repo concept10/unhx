@@ -90,6 +90,7 @@ struct ipc_space {
      *                 lookups (reads); a rwlock would reduce contention.
      */
     atomic_flag         is_lock;
+    uint64_t            is_saved_flags; /* IRQ flags saved by ipc_space_lock */
 
     /*
      * is_active — false once the space has been torn down (task_destroy).
@@ -162,17 +163,22 @@ kern_return_t ipc_space_alloc_name(struct ipc_space *space,
 struct ipc_entry *ipc_space_lookup(struct ipc_space *space,
                                    mach_port_name_t  name);
 
-/* Spinlock helpers */
+/* Interrupt-safe spinlock helpers */
 static inline void ipc_space_lock(struct ipc_space *space)
 {
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     while (atomic_flag_test_and_set_explicit(&space->is_lock,
                                              memory_order_acquire))
         ; /* spin */
+    space->is_saved_flags = flags;
 }
 
 static inline void ipc_space_unlock(struct ipc_space *space)
 {
+    uint64_t flags = space->is_saved_flags;
     atomic_flag_clear_explicit(&space->is_lock, memory_order_release);
+    __asm__ volatile ("pushq %0; popfq" : : "r"(flags) : "memory");
 }
 
 #endif /* IPC_SPACE_H */

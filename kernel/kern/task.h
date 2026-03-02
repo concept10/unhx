@@ -77,6 +77,14 @@ struct task {
     uint32_t            t_thread_count;
 
     /*
+     * t_cr3 — physical address of this task's PML4 page table.
+     * Loaded into CR3 when context-switching to a thread in this task.
+     * Kernel tasks use the kernel PML4; user tasks get a per-task PML4
+     * that shares the kernel's identity and higher-half mappings.
+     */
+    uint64_t            t_cr3;
+
+    /*
      * t_ref_count — reference count.
      * Prevents premature destruction while other kernel code holds a pointer.
      */

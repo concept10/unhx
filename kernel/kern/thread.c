@@ -148,8 +148,21 @@ void thread_switch(struct thread *from, struct thread *to)
     if (from == to)
         return;
 
-    from->th_state = THREAD_STATE_RUNNABLE;
-    to->th_state   = THREAD_STATE_RUNNING;
+    /* Do NOT touch from->th_state here — the caller (sched_yield) manages
+     * it.  If we blindly set RUNNABLE, we would override WAITING set by
+     * sched_sleep(), breaking blocking IPC. */
+    to->th_state = THREAD_STATE_RUNNING;
+
+    /*
+     * Switch page tables if the two threads belong to different tasks.
+     * Same-task threads share an address space, so no CR3 switch is needed
+     * (and we avoid an unnecessary TLB flush).
+     */
+    if (from->th_task && to->th_task &&
+        from->th_task->t_cr3 != to->th_task->t_cr3) {
+        __asm__ volatile ("movq %0, %%cr3"
+                          : : "r"(to->th_task->t_cr3) : "memory");
+    }
 
     context_switch_asm(&from->th_cpu_state, &to->th_cpu_state);
 }

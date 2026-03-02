@@ -68,6 +68,7 @@ struct ipc_port {
      *       Phase 1 because we have a single CPU and no preemption.
      */
     atomic_flag         ip_lock;        /* spinlock: test-and-set */
+    uint64_t            ip_saved_flags; /* IRQ flags saved by ipc_port_lock */
 
     /*
      * ip_send_rights — reference count for outstanding send rights.
@@ -129,17 +130,22 @@ struct ipc_port *ipc_port_alloc(struct task *receiver);
  */
 void ipc_port_destroy(struct ipc_port *port);
 
-/* Spinlock helpers */
+/* Interrupt-safe spinlock helpers */
 static inline void ipc_port_lock(struct ipc_port *port)
 {
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     while (atomic_flag_test_and_set_explicit(&port->ip_lock,
                                              memory_order_acquire))
         ; /* spin */
+    port->ip_saved_flags = flags;
 }
 
 static inline void ipc_port_unlock(struct ipc_port *port)
 {
+    uint64_t flags = port->ip_saved_flags;
     atomic_flag_clear_explicit(&port->ip_lock, memory_order_release);
+    __asm__ volatile ("pushq %0; popfq" : : "r"(flags) : "memory");
 }
 
 #endif /* IPC_PORT_H */

@@ -93,6 +93,9 @@ struct thread {
 
     /* Linked list for scheduler run queue */
     struct thread      *th_sched_next;
+
+    /* Linked list for IPC wait queues (blocking receive) */
+    struct thread      *th_wait_next;
 };
 
 /* -------------------------------------------------------------------------
