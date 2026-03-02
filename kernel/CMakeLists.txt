@@ -116,13 +116,13 @@ target_compile_options(unhx.elf PRIVATE
     $<$<COMPILE_LANGUAGE:ASM>:${KERNEL_ASM_FLAGS}>
 )
 
-# Link as a freestanding ELF with our custom linker script
+# Link as a freestanding ELF with our custom linker script.
+# When using the cross-compilation toolchain (cmake/x86_64-elf-clang.cmake),
+# ld.lld is invoked directly (not through clang), so these are ld.lld flags.
 target_link_options(unhx.elf PRIVATE
-    -nostdlib
-    -nostartfiles
-    -static
     -T ${CMAKE_CURRENT_SOURCE_DIR}/linker.ld
     -z max-page-size=4096
+    --static
 )
 
 set_target_properties(unhx.elf PROPERTIES
