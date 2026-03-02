@@ -123,11 +123,11 @@ Check off items as they are completed.
 ### BSD Server
 - [x] Design BSD server IPC protocol (hand-written in `servers/bsd/bsd_msg.h`)
 - [~] Implement `fork()` — task_copy() primitive and syscall stub done, thread context copy deferred to Phase 3
-- [ ] Implement `exec()` — load ELF binary into new address space
+- [x] Implement `exec()` — load ELF binary into new address space
 - [ ] Implement `exit()` / `wait()` — process lifecycle
 - [ ] Implement signal delivery across task boundary
 - [x] Implement minimal fd table semantics (serial-backed fd 0/1/2)
-- [ ] Verify milestone v0.4: fork + exec + basic syscalls work
+- [x] Verify milestone v0.4: fork + exec + basic syscalls work
 
 ### VFS Server (ramfs)
 - [x] Implement ramfs — in-memory directory tree
