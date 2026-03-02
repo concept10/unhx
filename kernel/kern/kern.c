@@ -23,6 +23,7 @@
 #include "klib.h"
 #include "multiboot.h"
 #include "elf_load.h"
+#include "platform/platform.h"
 #include "platform/paging.h"
 
 #ifdef UNHOX_BOOT_TESTS
@@ -253,6 +254,10 @@ static void vfs_test_thread(void)
             ;
 
     struct task *ktask = kernel_task_ptr();
+    uint8_t rbuf[sizeof(vfs_reply_msg_t)];
+    mach_msg_size_t out_size = 0;
+    mach_msg_return_t mr;
+    int poll_count = 0;
 
     /* ---- OPEN /test.txt ---- */
     struct ipc_port *open_reply = ipc_port_alloc(ktask);
@@ -268,26 +273,35 @@ static void vfs_test_thread(void)
     kstrncpy(open_req.path, "/test.txt", VFS_PATH_MAX);
     open_req.reply_port    = (uint64_t)open_reply;
 
+    serial_putstr("[vfs-test] Sending OPEN request for /test.txt\r\n");
     ipc_mqueue_send(vfs_port->ip_messages, &open_req, sizeof(open_req));
+    serial_putstr("[vfs-test] OPEN request sent, waiting for reply...\r\n");
 
     /* Poll for open reply */
-    uint8_t rbuf[sizeof(vfs_reply_msg_t)];
-    mach_msg_size_t out_size = 0;
-    mach_msg_return_t mr;
+    poll_count = 0;
     do {
         mr = ipc_mqueue_receive(open_reply->ip_messages,
                                 rbuf, sizeof(rbuf), &out_size, 0);
-        if (mr != MACH_MSG_SUCCESS)
+        if (mr != MACH_MSG_SUCCESS) {
+            poll_count++;
+            if (poll_count % 1000 == 0) {
+                serial_putstr("[vfs-test] Still polling for OPEN reply...\r\n");
+            }
             for (volatile int s = 0; s < 10000; s++)
                 ;
+        }
     } while (mr != MACH_MSG_SUCCESS);
 
+    serial_putstr("[vfs-test] OPEN reply received\r\n");
     vfs_reply_msg_t *open_rep = (vfs_reply_msg_t *)rbuf;
     if (open_rep->retcode != VFS_SUCCESS) {
         serial_putstr("[vfs-test] FAIL — open returned error\r\n");
         goto done;
     }
     int fd = open_rep->result;
+    serial_putstr("[vfs-test] OPEN succeeded, fd=");
+    serial_puthex(fd);
+    serial_putstr("\r\n");
 
     /* ---- READ ---- */
     struct ipc_port *read_reply = ipc_port_alloc(ktask);
@@ -305,22 +319,37 @@ static void vfs_test_thread(void)
     read_req.offset        = 0;
     read_req.reply_port    = (uint64_t)read_reply;
 
+    serial_putstr("[vfs-test] Sending READ request for fd=");
+    serial_puthex(fd);
+    serial_putstr("\r\n");
     ipc_mqueue_send(vfs_port->ip_messages, &read_req, sizeof(read_req));
+    serial_putstr("[vfs-test] READ request sent, waiting for reply...\r\n");
 
     /* Poll for read reply */
+    poll_count = 0;
     do {
         mr = ipc_mqueue_receive(read_reply->ip_messages,
                                 rbuf, sizeof(rbuf), &out_size, 0);
-        if (mr != MACH_MSG_SUCCESS)
+        if (mr != MACH_MSG_SUCCESS) {
+            poll_count++;
+            if (poll_count % 1000 == 0) {
+                serial_putstr("[vfs-test] Still polling for READ reply...\r\n");
+            }
             for (volatile int s = 0; s < 10000; s++)
                 ;
+        }
     } while (mr != MACH_MSG_SUCCESS);
 
+    serial_putstr("[vfs-test] READ reply received\r\n");
     vfs_reply_msg_t *read_rep = (vfs_reply_msg_t *)rbuf;
     if (read_rep->retcode == VFS_SUCCESS && read_rep->result > 0) {
         serial_putstr("[vfs-test] PASS — VFS open+read works\r\n");
     } else {
-        serial_putstr("[vfs-test] FAIL — read returned error\r\n");
+        serial_putstr("[vfs-test] FAIL — read returned error (retcode=");
+        serial_puthex(read_rep->retcode);
+        serial_putstr(" result=");
+        serial_puthex(read_rep->result);
+        serial_putstr(")\r\n");
     }
 
 done:
