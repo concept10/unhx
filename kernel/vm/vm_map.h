@@ -74,4 +74,40 @@ struct vm_map {
  */
 struct vm_map *vm_map_create(vm_address_t min, vm_address_t max);
 
+/*
+ * vm_map_enter — allocate a region in the address space.
+ *
+ * Finds a free slot, allocates physical pages, and maps them into the
+ * task's page tables via paging_map_page().
+ *
+ * map:  the vm_map to modify
+ * addr: desired virtual address (must be page-aligned)
+ * size: size in bytes (rounded up to page boundary)
+ * prot: protection flags (VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE)
+ *
+ * Returns KERN_SUCCESS on success, or an error code.
+ */
+kern_return_t vm_map_enter(struct vm_map *map,
+                           vm_address_t addr,
+                           vm_size_t size,
+                           vm_prot_t prot);
+
+/*
+ * vm_map_remove — remove a region from the address space.
+ *
+ * Unmaps pages, frees the physical page frames, and removes the
+ * vm_map_entry.
+ *
+ * Returns KERN_SUCCESS if the region was found and removed.
+ */
+kern_return_t vm_map_remove(struct vm_map *map,
+                            vm_address_t start,
+                            vm_address_t end);
+
+/*
+ * vm_map_lookup — find the vm_map_entry containing the given address.
+ * Returns NULL if the address is not mapped.
+ */
+struct vm_map_entry *vm_map_lookup(struct vm_map *map, vm_address_t addr);
+
 #endif /* VM_MAP_H */

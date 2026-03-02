@@ -11,6 +11,7 @@
 #include "klib.h"
 #include "ipc/ipc.h"
 #include "vm/vm_map.h"
+#include "platform/paging.h"
 
 /* Static pool of tasks for Phase 1 */
 static struct task task_pool[MAX_TASKS];
@@ -66,6 +67,16 @@ struct task *task_create(struct task *parent)
         return (void *)0;
     }
 
+    /*
+     * Set the task's page tables.
+     * Kernel tasks use the kernel PML4 directly.  User tasks will
+     * call paging_create_task_pml4() to get a per-task PML4.
+     */
+    t->t_cr3 = paging_kernel_pml4_phys();
+
+    /* Link the vm_map to the task's page tables */
+    t->t_map->pml4 = (uint64_t *)t->t_cr3;
+
     return t;
 }
 
@@ -85,6 +96,15 @@ void task_destroy(struct task *t)
         ipc_space_destroy(t->t_ipc_space);
         t->t_ipc_space = (void *)0;
     }
+
+    /*
+     * Free per-task page tables if this is not the kernel task.
+     * The kernel PML4 is statically allocated and must not be freed.
+     */
+    if (!t->is_kernel_task && t->t_cr3 != paging_kernel_pml4_phys()) {
+        paging_destroy_task_pml4(t->t_cr3);
+    }
+    t->t_cr3 = 0;
 
     /*
      * TODO: vm_map_destroy(t->t_map) when implemented.

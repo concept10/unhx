@@ -180,6 +180,32 @@ void sched_set_current(struct thread *th)
         th->th_state = THREAD_STATE_RUNNING;
 }
 
+void sched_sleep(void)
+{
+    uint64_t flags = irq_save();
+    if (current_thread)
+        current_thread->th_state = THREAD_STATE_WAITING;
+    irq_restore(flags);
+
+    /* Yield the CPU.  sched_yield() checks the state and will NOT
+     * re-enqueue us because we are WAITING.  We resume here when
+     * another thread calls sched_wakeup() on us. */
+    sched_yield();
+}
+
+void sched_wakeup(struct thread *th)
+{
+    if (!th)
+        return;
+
+    uint64_t flags = irq_save();
+    if (th->th_state == THREAD_STATE_WAITING) {
+        th->th_state = THREAD_STATE_RUNNABLE;
+        sched_enqueue(th);
+    }
+    irq_restore(flags);
+}
+
 void sched_run(void)
 {
     serial_putstr("[UNHOX] enabling interrupts, entering scheduler\r\n");

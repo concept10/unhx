@@ -85,6 +85,7 @@ set(KERNEL_SOURCES
     # VM subsystem
     vm/vm.c
     vm/vm_page.c
+    vm/vm_map.c
 
     # Kernel core
     kern/kalloc.c
@@ -95,6 +96,7 @@ set(KERNEL_SOURCES
     kern/thread.c
     kern/sched.c
     kern/kernel_task.c
+    kern/elf_load.c
 
     # Bootstrap server (Phase 1: linked into kernel)
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap.c

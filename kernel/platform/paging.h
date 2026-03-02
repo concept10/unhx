@@ -61,7 +61,7 @@
 void paging_init(uint64_t mmap_addr, uint32_t mmap_len);
 
 /*
- * paging_map — map a single 4 KB page.
+ * paging_map — map a single 4 KB page in the kernel's page tables.
  *
  * virt:  virtual address (must be page-aligned)
  * phys:  physical address (must be page-aligned)
@@ -70,5 +70,54 @@ void paging_init(uint64_t mmap_addr, uint32_t mmap_len);
  * Allocates intermediate page table levels as needed using vm_page_alloc().
  */
 void paging_map(uint64_t virt, uint64_t phys, uint64_t flags);
+
+/*
+ * paging_kernel_pml4_phys — return the physical address of the kernel PML4.
+ * Used as the CR3 value for kernel-only tasks.
+ */
+uint64_t paging_kernel_pml4_phys(void);
+
+/*
+ * paging_create_task_pml4 — allocate a new PML4 for a user task.
+ *
+ * The new PML4 shares the kernel's identity map (PML4[0]) and higher-half
+ * mapping (PML4[511]) so that kernel code works identically in all tasks.
+ * User mappings go in PML4 entries 1–510.
+ *
+ * Returns the physical address of the new PML4 page, or 0 on failure.
+ */
+uint64_t paging_create_task_pml4(void);
+
+/*
+ * paging_map_page — map a single 4 KB page in an arbitrary PML4.
+ *
+ * pml4:  pointer to the PML4 table (physical == virtual in identity map)
+ * virt:  virtual address to map
+ * phys:  physical address of the page frame
+ * flags: PTE_* flags
+ *
+ * Allocates intermediate tables (PDPT, PD, PT) as needed.
+ */
+void paging_map_page(uint64_t *pml4, uint64_t virt, uint64_t phys, uint64_t flags);
+
+/*
+ * paging_unmap_page — unmap a single 4 KB page from an arbitrary PML4.
+ *
+ * Clears the PTE.  Does NOT free intermediate table pages or the physical
+ * page frame (the caller is responsible for that).
+ */
+void paging_unmap_page(uint64_t *pml4, uint64_t virt);
+
+/*
+ * paging_destroy_task_pml4 — free a per-task PML4 and all intermediate
+ * user-space page table pages (PDPT, PD, PT pages allocated by
+ * paging_map_page).  Does NOT free physical page frames that were mapped.
+ *
+ * Kernel entries (PML4[0] identity map, PML4[511] higher-half) are skipped.
+ *
+ * pml4_phys: physical address of the PML4 (as returned by
+ *            paging_create_task_pml4).
+ */
+void paging_destroy_task_pml4(uint64_t pml4_phys);
 
 #endif /* PAGING_H */

@@ -12,9 +12,14 @@
 #include "kalloc.h"
 #include "kernel_task.h"
 #include "task.h"
+#include "thread.h"
 #include "sched.h"
 #include "ipc/ipc.h"
+#include "ipc/ipc_port.h"
+#include "ipc/ipc_space.h"
+#include "ipc/ipc_mqueue.h"
 #include "vm/vm.h"
+#include "klib.h"
 
 #ifdef UNHOX_BOOT_TESTS
 #include "tests/ipc_test.h"
@@ -36,12 +41,73 @@ void kern_init(void)
     sched_init();
 }
 
-/*
+/* -------------------------------------------------------------------------
+ * Blocking IPC test — thread A blocks on receive, thread B sends.
+ * Verifies that blocking IPC works: A sleeps until B's message arrives.
+ * ------------------------------------------------------------------------- */
+
+static struct ipc_port *blocking_test_port;
+
+static void blocking_ipc_receiver(void)
+{
+    serial_putstr("[ipc-block] receiver: blocking on receive...\r\n");
+
+    /* Block until a message arrives */
+    uint8_t buf[256];
+    mach_msg_size_t out_size = 0;
+    mach_msg_return_t mr = ipc_mqueue_receive(blocking_test_port->ip_messages,
+                                               buf, sizeof(buf), &out_size,
+                                               1 /* blocking */);
+
+    if (mr == MACH_MSG_SUCCESS) {
+        mach_msg_header_t *hdr = (mach_msg_header_t *)buf;
+        const char *payload = (const char *)(buf + sizeof(mach_msg_header_t));
+        (void)hdr;
+        serial_putstr("[ipc-block] receiver: got message: ");
+        serial_putstr(payload);
+        serial_putstr("\r\n");
+        serial_putstr("[ipc-block] PASS — blocking IPC works\r\n");
+    } else {
+        serial_putstr("[ipc-block] FAIL — receive returned error\r\n");
+    }
+
+    for (;;)
+        __asm__ volatile ("hlt");
+}
+
+static void blocking_ipc_sender(void)
+{
+    /* Delay to ensure receiver blocks first */
+    for (volatile int i = 0; i < 2000000; i++)
+        ;
+
+    serial_putstr("[ipc-block] sender: sending message...\r\n");
+
+    /* Build a message */
+    uint8_t buf[256];
+    kmemset(buf, 0, sizeof(buf));
+    mach_msg_header_t *hdr = (mach_msg_header_t *)buf;
+    hdr->msgh_size = sizeof(mach_msg_header_t) + 16;
+    const char *msg = "hello_blocking";
+    kmemcpy(buf + sizeof(mach_msg_header_t), msg, 15);
+
+    mach_msg_return_t mr = ipc_mqueue_send(blocking_test_port->ip_messages,
+                                            buf, hdr->msgh_size);
+
+    if (mr == MACH_MSG_SUCCESS) {
+        serial_putstr("[ipc-block] sender: message sent\r\n");
+    } else {
+        serial_putstr("[ipc-block] sender: send FAILED\r\n");
+    }
+
+    for (;;)
+        __asm__ volatile ("hlt");
+}
+
+/* -------------------------------------------------------------------------
  * Scheduler test threads — print alternating output to verify that
  * the PIT timer interrupt drives preemptive context switching.
- * Each thread loops, printing its label every ~500 ms (50 iterations
- * of a busy wait calibrated to roughly 10 ms each).
- */
+ * ------------------------------------------------------------------------- */
 static volatile int sched_test_done;
 
 static void busy_wait(void)
@@ -107,6 +173,10 @@ void kernel_main(void)
     serial_putstr("[UNHOX] activating zone allocator...\r\n");
     kalloc_zones_init();
 
+    serial_putstr("[UNHOX] initialising paging...\r\n");
+    extern void paging_init(uint64_t, uint32_t);
+    paging_init(0, 0);
+
     serial_putstr("[UNHOX] initialising kernel core...\r\n");
     kern_init();
 
@@ -147,11 +217,10 @@ void kernel_main(void)
 #endif
 
     /*
-     * Preemptive scheduling test:
-     * Create two threads that print alternating output, driven by
-     * the PIT timer interrupt (no explicit yield).
+     * Set up scheduling: create a boot thread to represent kernel_main,
+     * then launch test threads.
      */
-    serial_putstr("\r\n[UNHOX] creating scheduler test threads...\r\n");
+    serial_putstr("\r\n[UNHOX] creating test threads...\r\n");
     {
         struct task *ktask = kernel_task_ptr();
 
@@ -162,6 +231,18 @@ void kernel_main(void)
         struct thread *boot_th = thread_create(ktask, (void *)0, 0);
         if (boot_th)
             sched_set_current(boot_th);
+
+        /*
+         * Blocking IPC test:
+         * Thread "receiver" blocks on receive, thread "sender" sends after delay.
+         */
+        blocking_test_port = ipc_port_alloc(ktask);
+        if (blocking_test_port) {
+            struct thread *th_recv = thread_create(ktask, blocking_ipc_receiver, 0);
+            struct thread *th_send = thread_create(ktask, blocking_ipc_sender, 0);
+            if (th_recv) sched_enqueue(th_recv);
+            if (th_send) sched_enqueue(th_send);
+        }
 
         /* Thread A: prints "A" periodically */
         struct thread *th_a = thread_create(ktask, sched_test_thread_a, 0);

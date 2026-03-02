@@ -84,6 +84,20 @@ struct thread *sched_current(void);
 void sched_set_current(struct thread *th);
 
 /*
+ * sched_sleep — put the current thread to sleep (WAITING state).
+ * The thread is removed from the run queue and will not be scheduled
+ * until sched_wakeup() is called on it.  Used by blocking IPC receive.
+ */
+void sched_sleep(void);
+
+/*
+ * sched_wakeup — wake a sleeping thread.
+ * Sets the thread to RUNNABLE state and places it on the run queue.
+ * Called by IPC send when a message arrives for a blocked receiver.
+ */
+void sched_wakeup(struct thread *th);
+
+/*
  * sched_run — enable interrupts and enter the idle loop.
  * Called at the end of kernel_main() after all threads are created.
  * This function never returns.
