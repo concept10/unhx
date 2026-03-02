@@ -21,6 +21,7 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#include <stdint.h>
 #include "mach/mach_types.h"
 
 /*
@@ -39,5 +40,15 @@ void serial_putstr(const char *s);
  * serial_putchar — write a single character to COM1.
  */
 void serial_putchar(char c);
+
+/*
+ * serial_puthex — write a 64-bit value as "0x" prefixed hexadecimal to COM1.
+ */
+void serial_puthex(uint64_t val);
+
+/*
+ * serial_putdec — write an unsigned 32-bit integer as decimal to COM1.
+ */
+void serial_putdec(uint32_t val);
 
 #endif /* PLATFORM_H */

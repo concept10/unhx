@@ -61,6 +61,35 @@ void serial_putstr(const char *s)
 }
 
 /* -------------------------------------------------------------------------
+ * Hex and decimal output for debugging
+ * ------------------------------------------------------------------------- */
+
+void serial_puthex(uint64_t val)
+{
+    static const char hex[] = "0123456789abcdef";
+    serial_putchar('0');
+    serial_putchar('x');
+    for (int i = 60; i >= 0; i -= 4)
+        serial_putchar(hex[(val >> i) & 0xF]);
+}
+
+void serial_putdec(uint32_t val)
+{
+    if (val == 0) {
+        serial_putchar('0');
+        return;
+    }
+    char buf[10];
+    int i = 0;
+    while (val > 0) {
+        buf[i++] = '0' + (char)(val % 10);
+        val /= 10;
+    }
+    while (--i >= 0)
+        serial_putchar(buf[i]);
+}
+
+/* -------------------------------------------------------------------------
  * platform_init
  * ------------------------------------------------------------------------- */
 
