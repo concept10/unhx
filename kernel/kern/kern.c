@@ -48,6 +48,30 @@ extern void bsd_server_main(void);
 const uint8_t *g_boot_initrd_data = (const uint8_t *)0;
 uint64_t g_boot_initrd_size = 0;
 
+/*
+ * Gate userspace init startup until boot-time VFS checks have completed.
+ * This avoids shell command traffic racing with the kernel's VFS test thread.
+ */
+static volatile int vfs_test_complete = 0;
+static volatile int init_thread_staged = 0;
+static struct thread *pending_init_thread = (void *)0;
+
+static void init_release_thread(void)
+{
+    while (!(vfs_test_complete && init_thread_staged))
+        sched_yield();
+
+    if (pending_init_thread) {
+        sched_enqueue(pending_init_thread);
+        serial_putstr("[UNHOX] init task queued — will run in ring 3\r\n");
+    } else {
+        serial_putstr("[UNHOX] WARN: init release gate opened without thread\r\n");
+    }
+
+    for (;;)
+        sched_sleep();
+}
+
 void kern_init(void)
 {
     /* Create the kernel task (task 0) with its ipc_space */
@@ -239,7 +263,7 @@ static void bootstrap_ipc_test(void)
 
 done:
     for (;;)
-        __asm__ volatile ("hlt");
+        sched_sleep();
 }
 static void vfs_test_thread(void)
 {
@@ -404,8 +428,10 @@ static void vfs_test_thread(void)
     }
 
 done:
+    vfs_test_complete = 1;
+
     for (;;)
-        __asm__ volatile ("hlt");
+        sched_sleep();
 }
 
 void kernel_main(uint32_t mb_info_phys)
@@ -540,6 +566,13 @@ void kernel_main(uint32_t mb_info_phys)
         if (th_vfs_test)
             sched_enqueue(th_vfs_test);
 
+        struct thread *th_init_release = thread_create(ktask, init_release_thread, 0);
+        if (th_init_release) {
+            sched_enqueue(th_init_release);
+        } else {
+            serial_putstr("[init-gate] WARN: failed to create release thread\r\n");
+        }
+
         /*
          * Blocking IPC test:
          * Thread "receiver" blocks on receive, thread "sender" sends after delay.
@@ -633,8 +666,9 @@ void kernel_main(uint32_t mb_info_phys)
                     struct thread *uth =
                         thread_create_user(utask, entry, user_rsp);
                     if (uth) {
-                        sched_enqueue(uth);
-                        serial_putstr("[UNHOX] init task queued — will run in ring 3\r\n");
+                        pending_init_thread = uth;
+                        init_thread_staged = 1;
+                        serial_putstr("[UNHOX] init task staged — waiting for VFS test completion\r\n");
                     } else {
                         serial_putstr("[UNHOX] WARN: thread_create_user failed\r\n");
                     }

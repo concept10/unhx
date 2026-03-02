@@ -18,6 +18,7 @@
 #include "kern/thread.h"
 #include "kern/elf.h"
 #include "kern/elf_load.h"
+#include "kern/kern.h"
 #include "vfs/vfs_msg.h"
 #include "vm/vm_map.h"
 #include "platform/paging.h"
@@ -30,6 +31,7 @@
 
 extern void serial_putstr(const char *s);
 extern void serial_putchar(char c);
+extern void serial_puthex(uint64_t val);
 extern char serial_getchar(void);
 
 /* -------------------------------------------------------------------------
@@ -38,16 +40,12 @@ extern char serial_getchar(void);
 
 struct ipc_port *bsd_port = (void *)0;
 
-static int bsd_vfs_open(const char *path)
+static int bsd_vfs_open(const char *path, struct ipc_port *reply)
 {
-    if (!path || !vfs_port) {
-        serial_putstr("[bsd-vfs-open] ERROR: path or vfs_port is NULL\r\n");
-        return -1;
-    }
+    int ret = -1;
 
-    struct ipc_port *reply = ipc_port_alloc(kernel_task_ptr());
-    if (!reply) {
-        serial_putstr("[bsd-vfs-open] ERROR: reply port alloc failed\r\n");
+    if (!path || !vfs_port || !reply) {
+        serial_putstr("[bsd-vfs-open] ERROR: path or vfs_port is NULL\r\n");
         return -1;
     }
 
@@ -67,29 +65,43 @@ static int bsd_vfs_open(const char *path)
     serial_putstr("[bsd-vfs-open] waiting for reply...\r\n");
     vfs_reply_msg_t rep;
     mach_msg_size_t out_size = 0;
-    if (ipc_mqueue_receive(reply->ip_messages, &rep, sizeof(rep), &out_size, 1) != MACH_MSG_SUCCESS) {
-        serial_putstr("[bsd-vfs-open] ERROR: receive failed\r\n");
-        return -1;
+    int got_reply = 0;
+    for (int spins = 0; spins < 200000; spins++) {
+        mach_msg_return_t mr = ipc_mqueue_receive(
+            reply->ip_messages, &rep, sizeof(rep), &out_size, 0 /* non-blocking */);
+        if (mr == MACH_MSG_SUCCESS) {
+            got_reply = 1;
+            break;
+        }
+        if ((spins % 256) == 0)
+            sched_yield();
+    }
+    if (!got_reply) {
+        serial_putstr("[bsd-vfs-open] ERROR: timed out waiting for OPEN reply\r\n");
+        goto out;
     }
 
     serial_putstr("[bsd-vfs-open] got reply, retcode=");
-    /* TODO: print rep.retcode */
+    serial_puthex((uint64_t)rep.retcode);
     serial_putstr(" result=");
-    /* TODO: print rep.result */
+    serial_puthex((uint64_t)rep.result);
     serial_putstr("\r\n");
 
     if (rep.retcode != VFS_SUCCESS)
-        return -1;
-    return rep.result;
+        goto out;
+
+    ret = rep.result;
+
+out:
+    return ret;
 }
 
-static int bsd_vfs_read_chunk(int fd, uint32_t offset, uint8_t *buf, uint32_t count)
+static int bsd_vfs_read_chunk(int fd, uint32_t offset, uint8_t *buf, uint32_t count,
+                              struct ipc_port *reply)
 {
-    if (!vfs_port || !buf || count == 0)
-        return -1;
+    int ret = -1;
 
-    struct ipc_port *reply = ipc_port_alloc(kernel_task_ptr());
-    if (!reply)
+    if (!vfs_port || !buf || count == 0 || !reply)
         return -1;
 
     vfs_read_msg_t req;
@@ -101,37 +113,71 @@ static int bsd_vfs_read_chunk(int fd, uint32_t offset, uint8_t *buf, uint32_t co
     req.offset        = offset;
     req.reply_port    = (uint64_t)reply;
 
-    if (ipc_mqueue_send(vfs_port->ip_messages, &req, sizeof(req)) != MACH_MSG_SUCCESS)
+    mach_msg_return_t send_mr = ipc_mqueue_send(vfs_port->ip_messages, &req, sizeof(req));
+    if (send_mr != MACH_MSG_SUCCESS) {
+        serial_putstr("[bsd-vfs-read] ERROR: send failed, mr=");
+        serial_puthex((uint64_t)send_mr);
+        serial_putstr("\r\n");
         return -1;
+    }
 
     vfs_reply_msg_t rep;
     mach_msg_size_t out_size = 0;
-    if (ipc_mqueue_receive(reply->ip_messages, &rep, sizeof(rep), &out_size, 1) != MACH_MSG_SUCCESS)
-        return -1;
+    int got_reply = 0;
+    for (int spins = 0; spins < 200000; spins++) {
+        mach_msg_return_t mr = ipc_mqueue_receive(
+            reply->ip_messages, &rep, sizeof(rep), &out_size, 0 /* non-blocking */);
+        if (mr == MACH_MSG_SUCCESS) {
+            got_reply = 1;
+            break;
+        }
+        if ((spins % 256) == 0)
+            sched_yield();
+    }
+    if (!got_reply) {
+        serial_putstr("[bsd-vfs-read] ERROR: timed out waiting for READ reply\r\n");
+        goto out;
+    }
 
-    if (rep.retcode != VFS_SUCCESS || rep.result < 0)
-        return -1;
+    if (rep.retcode != VFS_SUCCESS || rep.result < 0) {
+        serial_putstr("[bsd-vfs-read] ERROR: bad reply retcode=");
+        serial_puthex((uint64_t)rep.retcode);
+        serial_putstr(" result=");
+        serial_puthex((uint64_t)rep.result);
+        serial_putstr("\r\n");
+        goto out;
+    }
 
     if (rep.result > 0)
         kmemcpy(buf, rep.data, (uint32_t)rep.result);
 
-    return rep.result;
+    ret = rep.result;
+
+out:
+    return ret;
 }
 
 static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, uint32_t *size_out)
 {
+    struct ipc_port *reply = ipc_port_alloc(kernel_task_ptr());
+    if (!reply) {
+        serial_putstr("[bsd-vfs] ERROR: reply port alloc failed\r\n");
+        return -1;
+    }
+
     serial_putstr("[bsd-vfs] opening: ");
     serial_putstr(path);
     serial_putstr("\r\n");
 
-    int fd = bsd_vfs_open(path);
+    int fd = bsd_vfs_open(path, reply);
     if (fd < 0) {
         serial_putstr("[bsd-vfs] ERROR: open failed\r\n");
+        ipc_port_destroy(reply);
         return -1;
     }
 
     serial_putstr("[bsd-vfs] open succeeded, fd=");
-    /* TODO: print fd */
+    serial_puthex((uint64_t)fd);
     serial_putstr("\r\n");
 
     uint32_t off = 0;
@@ -141,18 +187,20 @@ static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, ui
             want = dst_cap - off;
         if (want == 0) {
             serial_putstr("[bsd-vfs] ERROR: want=0 (buffer full?)\r\n");
+            ipc_port_destroy(reply);
             return -1;
         }
 
         serial_putstr("[bsd-vfs] reading chunk at offset=");
-        /* TODO: print off */
+        serial_puthex((uint64_t)off);
         serial_putstr(" want=");
-        /* TODO: print want */
+        serial_puthex((uint64_t)want);
         serial_putstr("\r\n");
 
-        int n = bsd_vfs_read_chunk(fd, off, dst + off, want);
+        int n = bsd_vfs_read_chunk(fd, off, dst + off, want, reply);
         if (n < 0) {
             serial_putstr("[bsd-vfs] ERROR: read chunk failed\r\n");
+            ipc_port_destroy(reply);
             return -1;
         }
         if (n == 0) {
@@ -161,17 +209,19 @@ static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, ui
         }
 
         serial_putstr("[bsd-vfs] read ");
-        /* TODO: print n */
+        serial_puthex((uint64_t)n);
         serial_putstr(" bytes\r\n");
         off += (uint32_t)n;
     }
 
     serial_putstr("[bsd-vfs] total read: ");
-    /* TODO: print off */
+    serial_puthex((uint64_t)off);
     serial_putstr(" bytes\r\n");
 
     if (size_out)
         *size_out = off;
+
+    ipc_port_destroy(reply);
     return 0;
 }
 
@@ -191,21 +241,34 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
     }
 
     struct task *task = cur_th->th_task;
-    uint8_t *image = (uint8_t *)kalloc(BSD_EXEC_MAX_IMAGE);
-    if (!image) {
-        serial_putstr("[bsd-exec] ERROR: image allocation failed\r\n");
-        return -1;
-    }
-
-    serial_putstr("[bsd-exec] reading image from VFS\r\n");
+    const uint8_t *image = (const uint8_t *)0;
     uint32_t image_size = 0;
-    if (bsd_vfs_read_all(path, image, BSD_EXEC_MAX_IMAGE, &image_size) != 0) {
-        serial_putstr("[bsd-exec] ERROR: VFS read failed\r\n");
-        return -1;
+
+    /* Fast path for init image exported from Multiboot module. */
+    if (kstrcmp(path, "/bin/init.elf") == 0 &&
+        g_boot_initrd_data && g_boot_initrd_size > 0 &&
+        g_boot_initrd_size <= BSD_EXEC_MAX_IMAGE) {
+        image = g_boot_initrd_data;
+        image_size = (uint32_t)g_boot_initrd_size;
+        serial_putstr("[bsd-exec] using boot initrd image\r\n");
+    } else {
+        uint8_t *image_buf = (uint8_t *)kalloc(BSD_EXEC_MAX_IMAGE);
+        if (!image_buf) {
+            serial_putstr("[bsd-exec] ERROR: image allocation failed\r\n");
+            return -1;
+        }
+
+        serial_putstr("[bsd-exec] reading image from VFS\r\n");
+        if (bsd_vfs_read_all(path, image_buf, BSD_EXEC_MAX_IMAGE, &image_size) != 0) {
+            serial_putstr("[bsd-exec] ERROR: VFS read failed\r\n");
+            return -1;
+        }
+
+        image = image_buf;
     }
 
     serial_putstr("[bsd-exec] image size: ");
-    /* TODO: print image_size */
+    serial_puthex((uint64_t)image_size);
     serial_putstr("\r\n");
 
     uint64_t new_cr3 = paging_create_task_pml4();

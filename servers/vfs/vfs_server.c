@@ -112,9 +112,21 @@ void vfs_server_main(void)
                 break;
             vfs_read_msg_t *req = (vfs_read_msg_t *)buf;
 
+            serial_putstr("[vfs] READ: fd=");
+            serial_puthex((uint64_t)req->fd);
+            serial_putstr(" count=");
+            serial_puthex((uint64_t)req->count);
+            serial_putstr(" offset=");
+            serial_puthex((uint64_t)req->offset);
+            serial_putstr("\r\n");
+
             uint8_t  data_buf[VFS_DATA_MAX];
             uint32_t want = req->count < VFS_DATA_MAX ? req->count : VFS_DATA_MAX;
             int      n    = ramfs_read(req->fd, data_buf, want, req->offset);
+
+            serial_putstr("[vfs] READ result n=");
+            serial_puthex((uint64_t)n);
+            serial_putstr("\r\n");
 
             if (req->reply_port) {
                 vfs_reply_msg_t reply;
@@ -127,7 +139,12 @@ void vfs_server_main(void)
                     kmemcpy(reply.data, data_buf, (uint32_t)n);
 
                 struct ipc_port *rp = (struct ipc_port *)req->reply_port;
-                ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+                mach_msg_return_t send_mr = ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+                if (send_mr != MACH_MSG_SUCCESS) {
+                    serial_putstr("[vfs] READ reply send failed mr=");
+                    serial_puthex((uint64_t)send_mr);
+                    serial_putstr("\r\n");
+                }
             }
             break;
         }
