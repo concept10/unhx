@@ -10,8 +10,8 @@
  *   ipc_port.h  / ipc_port.c  — kernel-internal port objects
  *   ipc_space.h / ipc_space.c — per-task port name spaces
  *   ipc_entry.h               — individual name-space entries
- *   ipc_mqueue.h/ ipc_mqueue.c— per-port message queues (Phase 2)
- *   ipc_kmsg.h  / ipc_kmsg.c  — mach_msg() kernel entry point (Phase 2)
+ *   ipc_mqueue.h/ ipc_mqueue.c— per-port message queues
+ *   ipc_kmsg.h  / ipc_kmsg.c  — mach_msg() kernel entry point
  *
  * Reference: CMU Mach 3.0 paper (Accetta et al., 1986) §3 — IPC.
  */

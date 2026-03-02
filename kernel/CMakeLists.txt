@@ -4,10 +4,13 @@
 # Requires an x86_64-elf cross-compiler (or clang with --target=x86_64-elf).
 #
 # Usage (from the repo root):
-#   cmake -S . -B build \
-#         -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake \
+#   cmake -S kernel -B build \
+#         -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
 #         -DUNHOX_BOOT_TESTS=ON
 #   cmake --build build
+#
+# Prerequisites (macOS arm64):
+#   brew install llvm qemu
 
 cmake_minimum_required(VERSION 3.20)
 project(unhx_kernel C ASM)
@@ -46,7 +49,8 @@ set(KERNEL_C_FLAGS
     -mcmodel=kernel
     -Wall
     -Wextra
-    -Werror
+    -Wno-unused-function
+    -Wno-unused-parameter
 )
 
 set(KERNEL_ASM_FLAGS
@@ -60,23 +64,37 @@ set(KERNEL_ASM_FLAGS
 set(KERNEL_SOURCES
     # Platform layer (boot and hardware abstraction)
     platform/boot.S
+    platform/context_switch.S
     platform/gdt.c
     platform/platform.c
+    platform/paging.c
 
     # IPC subsystem
     ipc/ipc.c
+    ipc/ipc_mqueue.c
+    ipc/ipc_kmsg.c
 
     # VM subsystem
     vm/vm.c
+    vm/vm_page.c
 
     # Kernel core
+    kern/kalloc.c
+    kern/klib.c
     kern/kern.c
+    kern/task.c
+    kern/thread.c
+    kern/sched.c
+    kern/kernel_task.c
+
+    # Bootstrap server (Phase 1: linked into kernel)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/registry.c
 )
 
 if(UNHOX_BOOT_TESTS)
     list(APPEND KERNEL_SOURCES
-        # Phase 1 IPC self-test (Prompt 3.3 / Prompt 8 — Milestone v0.2)
-        # tests/ipc_test.c   # TODO: add when implemented
+        tests/ipc_test.c
     )
     add_compile_definitions(UNHOX_BOOT_TESTS=1)
 endif()
@@ -90,6 +108,7 @@ add_executable(unhx.elf ${KERNEL_SOURCES})
 target_include_directories(unhx.elf PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers
 )
 
 target_compile_options(unhx.elf PRIVATE

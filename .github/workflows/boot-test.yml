@@ -1,0 +1,108 @@
+# .github/workflows/boot-test.yml — UNHOX kernel boot & IPC milestone test
+#
+# Runs on every push to main:
+#   1. Installs an x86_64-elf cross-compiler and QEMU
+#   2. Builds the kernel with UNHOX_BOOT_TESTS=ON
+#   3. Boots the kernel under QEMU
+#   4. Captures serial output
+#   5. Verifies the boot banner and IPC test results appear
+#
+# The QEMU process is given a 30-second timeout — the kernel should boot
+# and run all tests well within that window.
+
+name: Boot & IPC Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  boot-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install cross-compiler and QEMU
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            gcc-x86-64-linux-gnu \
+            binutils-x86-64-linux-gnu \
+            qemu-system-x86 \
+            cmake \
+            grub-pc-bin \
+            xorriso \
+            mtools
+
+      - name: Configure CMake (cross-compile for x86-64)
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_C_COMPILER=x86_64-linux-gnu-gcc \
+            -DCMAKE_ASM_COMPILER=x86_64-linux-gnu-gcc \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DUNHOX_BOOT_TESTS=ON
+
+      - name: Build kernel
+        run: cmake --build build --target unhx.elf
+
+      - name: Verify kernel image exists
+        run: |
+          ls -la build/kernel/unhx.elf
+          file build/kernel/unhx.elf
+
+      - name: Boot kernel in QEMU and capture serial output
+        run: |
+          # Run QEMU with a 30-second timeout
+          # -serial file: redirects COM1 output to a file
+          # -no-reboot: exit on triple fault instead of rebooting
+          # -display none: headless
+          timeout 30 qemu-system-x86_64 \
+            -machine q35 \
+            -accel tcg \
+            -cpu qemu64 \
+            -m 256M \
+            -kernel build/kernel/unhx.elf \
+            -serial file:serial_output.txt \
+            -display none \
+            -no-reboot \
+            -no-shutdown \
+            || true  # QEMU exits non-zero on halt, which is expected
+
+          echo "=== Serial Output ==="
+          cat serial_output.txt
+          echo "=== End Serial Output ==="
+
+      - name: Verify boot banner
+        run: |
+          grep -q "kernel_main entered" serial_output.txt || \
+            (echo "FAIL: boot banner not found" && exit 1)
+          echo "PASS: kernel_main entered"
+
+      - name: Verify IPC smoke test
+        run: |
+          grep -q "Phase 1 complete. Mach IPC operational" serial_output.txt || \
+            (echo "FAIL: IPC smoke test did not pass" && exit 1)
+          echo "PASS: IPC smoke test passed"
+
+      - name: Verify IPC milestone test
+        run: |
+          grep -q "IPC milestone v0.2 PASSED" serial_output.txt || \
+            (echo "FAIL: IPC milestone test did not pass" && exit 1)
+          echo "PASS: IPC milestone test passed"
+
+      - name: Verify bootstrap server
+        run: |
+          grep -q "bootstrap server ready" serial_output.txt || \
+            (echo "FAIL: bootstrap server did not initialise" && exit 1)
+          echo "PASS: bootstrap server ready"
+
+      - name: Upload serial output artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: serial-output
+          path: serial_output.txt
