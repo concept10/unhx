@@ -1,6 +1,6 @@
-# UNHOX Development Roadmap
+# UNHU Development Roadmap
 
-Full roadmap from the UNHOX Project Proposal.
+Full roadmap from the UNHU Project Proposal.
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Full roadmap from the UNHOX Project Proposal.
 | v0.2 | IPC Works | Two tasks pass a Mach message |
 | v0.3 | Bootstrap | Bootstrap server, service registration |
 | v0.4 | BSD Server | Fork, exec, basic POSIX syscalls |
-| v0.5 | Shell | A shell prompt running on UNHOX |
+| v0.5 | Shell | A shell prompt running on UNHU |
 | v0.6 | Disk & FS | Boot from disk, read/write files |
 | v0.7 | Foundation | GNUstep Foundation app runs |
 | v0.8 | Display | Framebuffer + minimal window system |
@@ -42,11 +42,11 @@ Full roadmap from the UNHOX Project Proposal.
 - [ ] Mach port creation and IPC send/receive
 - [ ] Virtual memory — basic maps and objects
 - [ ] Bootstrap server — initial service registration
-- [ ] QEMU test script: boot and print "UNHOX v0.1"
+- [ ] QEMU test script: boot and print "UNHU v0.1"
 
 ## Phase 2 — System Servers
 
-**Deliverable:** A userspace shell running on UNHOX.
+**Deliverable:** A userspace shell running on UNHU.
 
 - [ ] BSD server — fork, exec, exit, wait
 - [ ] Signal delivery across process boundary
@@ -57,7 +57,7 @@ Full roadmap from the UNHOX Project Proposal.
 
 ## Phase 3 — Driver Layer & Real Hardware
 
-**Deliverable:** UNHOX boots from disk, reads files, handles input.
+**Deliverable:** UNHU boots from disk, reads files, handles input.
 
 - [ ] PCI enumeration in device server
 - [ ] AHCI/NVMe storage driver
@@ -69,20 +69,20 @@ Full roadmap from the UNHOX Project Proposal.
 
 ## Phase 4 — Framework Layer (NeXT Stack)
 
-**Deliverable:** A GNUstep application running on UNHOX.
+**Deliverable:** A GNUstep application running on UNHU.
 
-- [ ] Port libobjc2 to UNHOX userspace (no POSIX threading conflicts)
-- [ ] Port GNUstep Foundation (libs-base) to UNHOX
+- [ ] Port libobjc2 to UNHU userspace (no POSIX threading conflicts)
+- [ ] Port GNUstep Foundation (libs-base) to UNHU
 - [ ] Port libdispatch with Mach port integration
 - [ ] Minimal display server prototype
-- [ ] AppKit backend for UNHOX display server
+- [ ] AppKit backend for UNHU display server
 
 ## Phase 5 — Desktop & Full Stack
 
-**Deliverable:** A bootable UNHOX image with a complete NeXT-heritage desktop.
+**Deliverable:** A bootable UNHU image with a complete NeXT-heritage desktop.
 
 - [ ] Workspace Manager (GWorkspace-based)
 - [ ] Display PostScript-inspired compositing server
 - [ ] Interface Builder port
 - [ ] Package management
-- [ ] Self-hosting build (UNHOX builds UNHOX)
+- [ ] Self-hosting build (UNHU builds UNHU)

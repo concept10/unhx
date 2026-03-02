@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# tools/mirror-archives.sh — Download reference source archives for UNHOX
+# tools/mirror-archives.sh — Download reference source archives for UNHU
 #
 # This script obtains historical Mach kernel sources and documentation
-# used as design references for the UNHOX project.
+# used as design references for the UNHU project.
 #
 # Usage:
 #   ./tools/mirror-archives.sh [--all | --cmu | --osf | --utah | --next | --gnu]
@@ -129,7 +129,7 @@ mirror_gnu() {
 if [[ $# -eq 0 ]]; then
     echo "Usage: $0 [--all | --cmu | --osf | --utah | --next | --gnu]"
     echo ""
-    echo "Downloads reference source archives for UNHOX development."
+    echo "Downloads reference source archives for UNHU development."
     exit 0
 fi
 

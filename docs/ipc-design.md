@@ -1,10 +1,10 @@
 # IPC Subsystem Design
 
-Design decisions and rationale for the UNHOX Mach IPC implementation.
+Design decisions and rationale for the UNHU Mach IPC implementation.
 
 ## Overview
 
-UNHOX IPC follows the CMU Mach 3.0 model exactly: all inter-process
+UNHU IPC follows the CMU Mach 3.0 model exactly: all inter-process
 communication uses **port-based message passing**. Ports are the sole
 mechanism for cross-domain interaction — there are no Unix-style pipes,
 sockets, or shared memory primitives at the kernel level.

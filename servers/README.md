@@ -2,7 +2,7 @@
 
 Userspace personality servers — the kernel/server split.
 
-Unlike XNU, UNHOX maintains true microkernel discipline. Everything above the Mach
+Unlike XNU, UNHU maintains true microkernel discipline. Everything above the Mach
 primitives lives in userspace servers communicating via Mach IPC.
 
 ## Servers
@@ -25,5 +25,5 @@ fork, blocking syscalls) across process boundaries. See `docs/bsd-server-design.
 
 ## Phase 2 Deliverable
 
-A userspace shell (`/bin/sh`) running on UNHOX, communicating with the BSD server
+A userspace shell (`/bin/sh`) running on UNHU, communicating with the BSD server
 for process and file descriptor management.

@@ -2,7 +2,7 @@
 
 Historical source references and research archive.
 
-This directory contains or references all historical sources that UNHOX draws
+This directory contains or references all historical sources that UNHU draws
 from. Everything here is reference material — no new code is written here.
 
 ## Contents

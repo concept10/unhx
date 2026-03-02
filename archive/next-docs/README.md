@@ -4,7 +4,7 @@ NeXTSTEP / OPENSTEP documentation archive.
 
 ## Overview
 
-Documentation for the NeXT software stack that UNHOX's framework layer targets.
+Documentation for the NeXT software stack that UNHU's framework layer targets.
 Primary sources: bitsavers.org, archive.org, and surviving NeXT documentation mirrors.
 
 ## Documents to Archive

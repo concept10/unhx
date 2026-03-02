@@ -1,6 +1,6 @@
 # tools/
 
-Build tools, image creation, and development utilities for UNHOX.
+Build tools, image creation, and development utilities for UNHU.
 
 ## Planned Tools
 
@@ -18,7 +18,7 @@ Build tools, image creation, and development utilities for UNHOX.
 Recommended: Nix flake (reproducible, no host contamination).
 
 ```sh
-nix develop  # Enter UNHOX dev shell
+nix develop  # Enter UNHU dev shell
 ```
 
 Alternative: Install manually:

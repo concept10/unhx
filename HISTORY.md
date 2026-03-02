@@ -1,44 +1,44 @@
-# UNHOX Kernel — Development History
+# UNHU Kernel — Development History
 
 ## First Successful Boot — 2026-03-01
 
-The UNHOX kernel achieved its first successful boot on March 1, 2026,
+The UNHU kernel achieved its first successful boot on March 1, 2026,
 running on QEMU x86-64 (TCG) from an arm64 M3 MacBook Air.
 
 ### Boot output
 
 ```
 ================================================
-  UNHOX — U Is Not Hurd Or X
+  UNHU — U Is Not Hurd, it's µ
   Mach microkernel — Phase 1
 ================================================
-[UNHOX] kernel_main entered
-[UNHOX] initialising kernel heap...
-[UNHOX] initialising IPC subsystem...
-[UNHOX] initialising VM subsystem...
-[UNHOX] initialising kernel core...
-[UNHOX] kernel task (task 0) created
-[UNHOX] all subsystems initialised
+[UNHU] kernel_main entered
+[UNHU] initialising kernel heap...
+[UNHU] initialising IPC subsystem...
+[UNHU] initialising VM subsystem...
+[UNHU] initialising kernel core...
+[UNHU] kernel task (task 0) created
+[UNHU] all subsystems initialised
 
-[UNHOX IPC] beginning IPC smoke test...
-[UNHOX IPC] task_a and task_b created
-[UNHOX IPC] port allocated in task_a (receive right)
-[UNHOX IPC] send right granted to task_b
-[UNHOX IPC] task_b sent message
-[UNHOX IPC] message received: hello
-[UNHOX IPC] magic: 0x00000000deadbeef (correct)
-[UNHOX] Phase 1 complete. Mach IPC operational.
+[UNHU IPC] beginning IPC smoke test...
+[UNHU IPC] task_a and task_b created
+[UNHU IPC] port allocated in task_a (receive right)
+[UNHU IPC] send right granted to task_b
+[UNHU IPC] task_b sent message
+[UNHU IPC] message received: hello
+[UNHU IPC] magic: 0x00000000deadbeef (correct)
+[UNHU] Phase 1 complete. Mach IPC operational.
 
 [bootstrap] initialising bootstrap server
-[bootstrap] registered: com.unhox.kernel
-[bootstrap] registered: com.unhox.ipc_test
-[bootstrap] lookup com.unhox.kernel → port 1 (OK)
-[bootstrap] lookup com.unhox.nonexistent → not found (OK)
+[bootstrap] registered: com.unhu.kernel
+[bootstrap] registered: com.unhu.ipc_test
+[bootstrap] lookup com.unhu.kernel → port 1 (OK)
+[bootstrap] lookup com.unhu.nonexistent → not found (OK)
 [bootstrap] duplicate registration rejected (OK)
 [bootstrap] bootstrap server ready
 
 ========================================
- UNHOX IPC Milestone Test (v0.2)
+ UNHU IPC Milestone Test (v0.2)
 ========================================
   [PASS] task_a created
   [PASS] task_b created
@@ -59,11 +59,11 @@ running on QEMU x86-64 (TCG) from an arm64 M3 MacBook Air.
  Results: 13 passed, 0 failed, 13 total
  STATUS: PASS
 ========================================
-[UNHOX] IPC milestone v0.2 PASSED.
+[UNHU] IPC milestone v0.2 PASSED.
 
-[UNHOX] All milestone tests PASSED.
+[UNHU] All milestone tests PASSED.
 
-[UNHOX] halting (cooperative scheduling only in Phase 1)
+[UNHU] halting (cooperative scheduling only in Phase 1)
 ```
 
 ### Build environment

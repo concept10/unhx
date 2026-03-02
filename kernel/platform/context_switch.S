@@ -1,5 +1,5 @@
 /*
- * kernel/platform/context_switch.S — x86-64 context switch for UNHOX
+ * kernel/platform/context_switch.S — x86-64 context switch for UNHU
  *
  * Saves the callee-saved registers of the current thread and restores
  * those of the next thread, effectively switching execution context.

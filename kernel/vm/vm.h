@@ -1,5 +1,5 @@
 /*
- * kernel/vm/vm.h — Virtual memory subsystem for UNHOX
+ * kernel/vm/vm.h — Virtual memory subsystem for UNHU
  *
  * The VM subsystem implements Mach's object-based virtual memory model.
  * Each task has a vm_map (its virtual address space) composed of vm_map_entry

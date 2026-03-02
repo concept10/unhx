@@ -1,10 +1,10 @@
-# UNHOX — AI Copilot Prompting Guide
+# UNHU — AI Copilot Prompting Guide
 
-### *How to direct your AI assistant to begin building the UNHOX kernel*
+### *How to direct your AI assistant to begin building the UNHU kernel*
 
 -----
 
-> **What this guide is:** A structured set of prompts, context blocks, and strategies for using an AI coding assistant (GitHub Copilot, Claude, Cursor, Codeium, etc.) to actually begin implementing the UNHOX microkernel project. Each section gives you the exact prompt language to use, what to expect back, and how to chain prompts into productive sessions.
+> **What this guide is:** A structured set of prompts, context blocks, and strategies for using an AI coding assistant (GitHub Copilot, Claude, Cursor, Codeium, etc.) to actually begin implementing the UNHU microkernel project. Each section gives you the exact prompt language to use, what to expect back, and how to chain prompts into productive sessions.
 
 -----
 
@@ -16,10 +16,10 @@ AI assistants work best when they have full project context before you ask them 
 
 ### 📋 Project Context Block
 
-*Copy and paste this at the start of every new AI session working on UNHOX.*
+*Copy and paste this at the start of every new AI session working on UNHU.*
 
 ```
-You are working on UNHOX (U Is Not Hurd Or X), an open-source operating 
+You are working on UNHU (U Is Not Hurd, it's µ), an open-source operating 
 system project. The goal is to build a true running microkernel based on 
 the original Mach kernel design from Carnegie Mellon University (CMU, 1985–1990) 
 and the Open Software Foundation (OSF MK series).
@@ -66,7 +66,7 @@ Use these prompts to get the AI to set up the directory structure and build syst
 ### Prompt 1.1 — Generate the repo skeleton
 
 ```
-Using the UNHOX project context above, create the initial directory 
+Using the UNHU project context above, create the initial directory 
 structure for the kernel/ subdirectory. Include:
 
 - kernel/ipc/      — Mach port and message implementation
@@ -92,7 +92,7 @@ Also create:
 
 ```
 Create a shell script at tools/run-qemu.sh that:
-1. Builds the UNHOX kernel using CMake (out-of-source build in build/)
+1. Builds the UNHU kernel using CMake (out-of-source build in build/)
 2. Launches QEMU with:
    - x86-64 machine type
    - 256MB RAM
@@ -110,7 +110,7 @@ Add comments explaining each QEMU flag used.
 ### Prompt 1.3 — Initial boot entry
 
 ```
-Write the x86-64 boot entry code for UNHOX at kernel/platform/boot.S.
+Write the x86-64 boot entry code for UNHU at kernel/platform/boot.S.
 
 Requirements:
 - Multiboot2 compliant header so GRUB can load us
@@ -139,7 +139,7 @@ Before implementing IPC or VM, the AI needs to generate the foundational type de
 ### Prompt 2.1 — Core Mach types header
 
 ```
-Create kernel/include/mach/mach_types.h for UNHOX.
+Create kernel/include/mach/mach_types.h for UNHU.
 
 This must define the core Mach 3.0 types exactly as the CMU design 
 specified them. Include with proper documentation comments:
@@ -198,7 +198,7 @@ This is the most important part of the kernel. Use these prompts in sequence.
 ### Prompt 3.1 — Message queue implementation
 
 ```
-Implement a basic Mach message queue for UNHOX in kernel/ipc/ipc_mqueue.c 
+Implement a basic Mach message queue for UNHU in kernel/ipc/ipc_mqueue.c 
 and kernel/ipc/ipc_mqueue.h.
 
 The message queue sits inside each ipc_port and holds incoming messages 
@@ -273,8 +273,8 @@ Implement:
                         serial console to confirm receipt
 
 This becomes the Phase 1 milestone test. When this prints:
-  [UNHOX IPC] message received: hello
-  [UNHOX] Phase 1 complete. Mach IPC operational.
+  [UNHU IPC] message received: hello
+  [UNHU] Phase 1 complete. Mach IPC operational.
 ...we know the kernel core works.
 
 Call create_test_tasks() from kernel_main() after basic init.
@@ -289,7 +289,7 @@ Call create_test_tasks() from kernel_main() after basic init.
 ### Prompt 4.1 — Physical memory manager
 
 ```
-Implement a simple physical page allocator for UNHOX in:
+Implement a simple physical page allocator for UNHU in:
 - kernel/vm/vm_page.h
 - kernel/vm/vm_page.c
 
@@ -314,7 +314,7 @@ and mark the external pager protocol as a future TODO.
 ### Prompt 4.2 — Page table setup (x86-64)
 
 ```
-Implement x86-64 paging setup for UNHOX in kernel/platform/paging.c.
+Implement x86-64 paging setup for UNHU in kernel/platform/paging.c.
 
 Requirements:
 - Set up a 4-level page table (PML4 → PDPT → PD → PT)
@@ -344,7 +344,7 @@ for initial setup from the Multiboot2 memory map.
 ### Prompt 5.1 — Task structure
 
 ```
-Implement the Mach task abstraction for UNHOX in:
+Implement the Mach task abstraction for UNHU in:
 - kernel/kern/task.h
 - kernel/kern/task.c
 
@@ -377,7 +377,7 @@ where the process and its single thread are conflated.
 ### Prompt 5.2 — Thread structure and context switch
 
 ```
-Implement the Mach thread abstraction for UNHOX in:
+Implement the Mach thread abstraction for UNHU in:
 - kernel/kern/thread.h
 - kernel/kern/thread.c
 - kernel/platform/context_switch.S (x86-64 assembly)
@@ -410,7 +410,7 @@ being saved and why.
 ### Prompt 5.3 — Round-robin scheduler
 
 ```
-Implement a simple round-robin scheduler for UNHOX in:
+Implement a simple round-robin scheduler for UNHU in:
 - kernel/kern/sched.c
 - kernel/kern/sched.h
 
@@ -444,7 +444,7 @@ The bootstrap server is the first userspace process and the service registry for
 ### Prompt 6.1 — Bootstrap server skeleton
 
 ```
-Create the initial bootstrap server for UNHOX in servers/bootstrap/.
+Create the initial bootstrap server for UNHU in servers/bootstrap/.
 
 The bootstrap server is the first task started by the kernel. Every 
 other server registers with it and looks up other servers through it. 
@@ -501,7 +501,7 @@ If the AI starts producing Linux-style kernel code, or confuses Mach concepts wi
 ```
 Stop. You are conflating Mach and Linux/POSIX concepts. 
 
-In UNHOX / Mach:
+In UNHU / Mach:
 - There are NO file descriptors in the kernel. FDs are a BSD server concept.
 - There are NO sockets in the kernel. Networking is a userspace server.
 - There is NO VFS in the kernel. Filesystems are translator/server processes.
@@ -522,7 +522,7 @@ When you want the AI to ground its implementation in historical Mach:
 ```
 Before writing this code, tell me: how did CMU Mach 3.0 implement 
 [topic]? What were the key design decisions and trade-offs? 
-Then implement UNHOX's version, noting where we follow the original 
+Then implement UNHU's version, noting where we follow the original 
 design and where we deviate and why.
 ```
 
@@ -531,7 +531,7 @@ design and where we deviate and why.
 ### Asking for a Code Review Against Mach Principles
 
 ```
-Review the code in [file] against the five UNHOX design principles 
+Review the code in [file] against the five UNHU design principles 
 in the project context. Flag any places where:
 1. Logic that belongs in a userspace server has crept into the kernel
 2. A performance shortcut has violated the kernel/server boundary
@@ -553,7 +553,7 @@ Use these to verify each Phase 1 milestone is actually complete before moving on
 ### Milestone: Kernel Boots (v0.1)
 
 ```
-Write a test procedure for verifying UNHOX v0.1 "kernel boots" milestone.
+Write a test procedure for verifying UNHU v0.1 "kernel boots" milestone.
 The test should:
 1. Build the kernel with CMake
 2. Launch under QEMU via tools/run-qemu.sh
@@ -581,7 +581,7 @@ Write a kernel self-test for the IPC milestone that:
 
 This test should live in kernel/tests/ipc_test.c and be called 
 from kernel_main() in debug builds (controlled by a CMake option 
-UNHOX_BOOT_TESTS=ON).
+UNHU_BOOT_TESTS=ON).
 ```
 
 -----
@@ -600,7 +600,7 @@ Analyze it and explain:
 1. What it implements
 2. The key data structures and their purpose
 3. The algorithms used
-4. How we should adapt this for UNHOX (what to keep, what to modernize)
+4. How we should adapt this for UNHU (what to keep, what to modernize)
 5. Any places where the original code made trade-offs we should revisit
 
 [paste CMU Mach source here]
@@ -615,11 +615,11 @@ For the feature [name the feature], compare how:
 1. GNU HURD implements it (userspace server approach)
 2. XNU implements it (in-kernel approach)
 3. The original CMU Mach 3.0 design intended it to work
-4. How UNHOX should implement it given what we know now
+4. How UNHU should implement it given what we know now
 
 Cite the specific trade-offs HURD made for architectural purity 
 and the specific trade-offs XNU made for performance. 
-Then recommend the UNHOX approach with justification.
+Then recommend the UNHU approach with justification.
 ```
 
 -----
@@ -632,9 +632,9 @@ Then recommend the UNHOX approach with justification.
 |AI writes Linux-style code  |“Stop. In Mach, there are no [X] in the kernel…”                                                                                  |
 |Need historical grounding   |“How did CMU Mach 3.0 implement [X]? Then implement ours.”                                                                        |
 |AI is drifting off-task     |“Return to the current milestone: [state milestone]. What is the next concrete function to implement?”                            |
-|Stuck on a design decision  |“What would the Mach designers have done here? What would the HURD team do? What would the XNU team do? Recommend UNHOX approach.”|
+|Stuck on a design decision  |“What would the Mach designers have done here? What would the HURD team do? What would the XNU team do? Recommend UNHU approach.”|
 |Session ending              |“Summarize this session as a handoff for the next AI session.”                                                                    |
-|Code review                 |“Review [file] against UNHOX’s five design principles.”                                                                           |
+|Code review                 |“Review [file] against UNHU’s five design principles.”                                                                           |
 |Implementing a new subsystem|“Before writing code, outline how this fits into the Mach architecture and identify all kernel/server boundaries involved.”       |
 
 -----
@@ -692,5 +692,5 @@ key VM operations. They manipulate vm_map entries, not page tables directly.
 
 -----
 
-*UNHOX — The kernel Mach always wanted to become.*
-*github.com/unhox — Free Software — Open Research*
+*UNHU — The kernel Mach always wanted to become.*
+*github.com/unhu — Free Software — Open Research*

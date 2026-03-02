@@ -1,10 +1,10 @@
-# UNHOX System Architecture
+# UNHU System Architecture
 
 ## Full Software Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│            UNHOX Full Software Stack                        │
+│            UNHU Full Software Stack                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Workspace Manager  │  AppKit  │  Display Server (DPS)      │
 ├─────────────────────┼──────────┼────────────────────────────┤
@@ -22,7 +22,7 @@
 
 ## Kernel/Server Split
 
-UNHOX maintains strict microkernel discipline. The boundary:
+UNHU maintains strict microkernel discipline. The boundary:
 
 **Inside the kernel (kernel/ directory):**
 - Mach port IPC (`kernel/ipc/`)

@@ -1,6 +1,6 @@
-# UNHOX Task List
+# UNHU Task List
 
-Actionable tasks for the UNHOX project, organized by phase.
+Actionable tasks for the UNHU project, organized by phase.
 Check off items as they are completed.
 
 ---
@@ -63,7 +63,7 @@ Check off items as they are completed.
 - [ ] Write `kernel/platform/x86_64/idt.c` — Interrupt Descriptor Table
 - [ ] Write `kernel/platform/x86_64/pmap.c` — 4-level page table management
 - [ ] Write `kernel/platform/x86_64/uart.c` — 16550 serial console driver
-- [ ] Verify: kernel boots under QEMU and prints "UNHOX" via serial
+- [ ] Verify: kernel boots under QEMU and prints "UNHU" via serial
 - [ ] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test
 
 ### Physical Memory
@@ -128,7 +128,7 @@ Check off items as they are completed.
 - [ ] Verify: BSD server can open and read `/bin/sh` from ramfs
 
 ### Shell
-- [ ] Port `dash` (Debian Almquist Shell) to UNHOX
+- [ ] Port `dash` (Debian Almquist Shell) to UNHU
 - [ ] Verify milestone v0.5: shell prompt appears
 
 ---
@@ -156,26 +156,26 @@ Check off items as they are completed.
 ## Phase 4 — Framework Layer
 
 ### Objective-C Runtime
-- [ ] Build `frameworks/objc-runtime/` (libobjc2 submodule) for UNHOX userspace
+- [ ] Build `frameworks/objc-runtime/` (libobjc2 submodule) for UNHU userspace
 - [ ] Resolve any POSIX threading dependencies
-- [ ] Verify: simple Objective-C program compiles and runs on UNHOX
+- [ ] Verify: simple Objective-C program compiles and runs on UNHU
 
 ### GNUstep Foundation
-- [ ] Build `frameworks/Foundation/` (libs-base submodule) for UNHOX
+- [ ] Build `frameworks/Foundation/` (libs-base submodule) for UNHU
 - [ ] Port NSThread to use Mach thread primitives directly
 - [ ] Port NSRunLoop to use Mach port notification
-- [ ] Verify milestone v0.7: GNUstep Foundation app runs on UNHOX
+- [ ] Verify milestone v0.7: GNUstep Foundation app runs on UNHU
 
 ### libdispatch (GCD)
 - [ ] Build libdispatch with Mach port integration
-- [ ] Verify: `dispatch_async` works on UNHOX
+- [ ] Verify: `dispatch_async` works on UNHU
 
 ---
 
 ## Phase 5 — Desktop
 
-- [ ] Prototype UNHOX Display Server (DPS-inspired, Mach IPC native)
-- [ ] Build AppKit (libs-gui) with UNHOX display server backend
+- [ ] Prototype UNHU Display Server (DPS-inspired, Mach IPC native)
+- [ ] Build AppKit (libs-gui) with UNHU display server backend
 - [ ] Port GWorkspace as Workspace Manager
 - [ ] Verify milestone v1.0: NeXT-heritage desktop boots
 
@@ -199,11 +199,11 @@ Check off items as they are completed.
   - Alternative (Debian/Ubuntu): `sudo apt-get install qemu-system-x86_64 gcc-multilib grub-pc-bin grub-efi-amd64-bin xorriso`
   - Alternative (Fedora/RHEL): `sudo dnf install qemu-system-x86 grub2-tools xorriso`
   - Alternative (macOS/Homebrew): `brew install x86_64-elf-gcc qemu xorriso`
-- [ ] Write minimal Multiboot2 kernel stub that prints "UNHOX" via serial
+- [ ] Write minimal Multiboot2 kernel stub that prints "UNHU" via serial
 - [ ] Create `tools/qemu-run.sh`:
   ```sh
   qemu-system-x86_64 \
-    -kernel kernel/build/unhox-kernel \
+    -kernel kernel/build/unhu-kernel \
     -serial stdio \
     -display none \
     -m 256M \

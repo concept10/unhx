@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc.h — Mach IPC subsystem for UNHOX
+ * kernel/ipc/ipc.h — Mach IPC subsystem for UNHU
  *
  * The IPC subsystem implements Mach ports and message passing.  It is the
  * most fundamental part of the kernel: every cross-component interaction,

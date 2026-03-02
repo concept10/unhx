@@ -1,5 +1,5 @@
 /*
- * kernel/linker.ld — Linker script for the UNHOX kernel (Phase 1)
+ * kernel/linker.ld — Linker script for the UNHU kernel (Phase 1)
  *
  * Phase 1: the kernel is linked and runs at physical address 0x100000 (1 MB).
  * This is the traditional location for Multiboot kernels above the legacy

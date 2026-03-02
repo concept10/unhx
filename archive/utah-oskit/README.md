@@ -10,7 +10,7 @@ The University of Utah Flux project produced two important artifacts:
 
 A component-based OS construction kit — provides standalone C library, device
 drivers, and OS primitives as composable libraries. Extremely useful for early
-UNHOX bring-up without needing a complete OS stack.
+UNHU bring-up without needing a complete OS stack.
 
 ### Lites
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/run-qemu.sh — Build UNHOX and launch it under QEMU
+# tools/run-qemu.sh — Build UNHU and launch it under QEMU
 #
 # Usage:
 #   ./tools/run-qemu.sh [--no-build] [--no-kvm]
@@ -50,10 +50,10 @@ if [[ $DO_BUILD -eq 1 ]]; then
     cmake -S "${REPO_ROOT}/kernel" -B "${BUILD_DIR}" \
           -DCMAKE_TOOLCHAIN_FILE="${REPO_ROOT}/cmake/x86_64-elf-clang.cmake" \
           -DCMAKE_BUILD_TYPE=Debug \
-          -DUNHOX_BOOT_TESTS=ON \
+          -DUNHU_BOOT_TESTS=ON \
           --no-warn-unused-cli
 
-    echo "[run-qemu] Building UNHOX kernel ..."
+    echo "[run-qemu] Building UNHU kernel ..."
     cmake --build "${BUILD_DIR}" --target unhx.elf
 fi
 

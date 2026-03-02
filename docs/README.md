@@ -1,6 +1,6 @@
 # docs/
 
-Design documentation, RFCs, and research notes for UNHOX.
+Design documentation, RFCs, and research notes for UNHU.
 
 ## Contents
 

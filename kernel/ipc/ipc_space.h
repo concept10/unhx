@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_space.h — A task's port name space for UNHOX
+ * kernel/ipc/ipc_space.h — A task's port name space for UNHU
  *
  * ipc_space is the per-task table that maps port names (small integers that
  * userspace programs use) to kernel-internal port objects (ipc_port pointers).

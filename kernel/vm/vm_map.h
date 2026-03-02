@@ -1,5 +1,5 @@
 /*
- * kernel/vm/vm_map.h — Task virtual address space for UNHOX
+ * kernel/vm/vm_map.h — Task virtual address space for UNHU
  *
  * In Mach, each task has a vm_map representing its virtual address space.
  * The vm_map is an ordered collection of vm_map_entry ranges, each describing

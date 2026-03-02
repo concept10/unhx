@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc.c — Mach IPC subsystem implementation for UNHOX
+ * kernel/ipc/ipc.c — Mach IPC subsystem implementation for UNHU
  *
  * Implements ipc_port and ipc_space operations with real allocation
  * and lookup logic for Phase 1.

@@ -1,4 +1,4 @@
-# kernel/CMakeLists.txt — Build system for the UNHOX kernel
+# kernel/CMakeLists.txt — Build system for the UNHU kernel
 #
 # Configures a freestanding x86-64 ELF kernel binary.
 # Requires an x86_64-elf cross-compiler (or clang with --target=x86_64-elf).
@@ -6,7 +6,7 @@
 # Usage (from the repo root):
 #   cmake -S kernel -B build \
 #         -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
-#         -DUNHOX_BOOT_TESTS=ON
+#         -DUNHU_BOOT_TESTS=ON
 #   cmake --build build
 #
 # Prerequisites (macOS arm64):
@@ -29,7 +29,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 # Optional: compile-in boot self-tests (Phase 1 milestone IPC test)
 # ---------------------------------------------------------------------------
-option(UNHOX_BOOT_TESTS "Include kernel boot self-tests" OFF)
+option(UNHU_BOOT_TESTS "Include kernel boot self-tests" OFF)
 
 # ---------------------------------------------------------------------------
 # Freestanding kernel compile flags
@@ -96,11 +96,11 @@ set(KERNEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/registry.c
 )
 
-if(UNHOX_BOOT_TESTS)
+if(UNHU_BOOT_TESTS)
     list(APPEND KERNEL_SOURCES
         tests/ipc_test.c
     )
-    add_compile_definitions(UNHOX_BOOT_TESTS=1)
+    add_compile_definitions(UNHU_BOOT_TESTS=1)
 endif()
 
 # ---------------------------------------------------------------------------

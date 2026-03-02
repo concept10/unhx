@@ -1,4 +1,4 @@
-# CMakeLists.txt — Top-level build system for UNHOX
+# CMakeLists.txt — Top-level build system for UNHU
 #
 # This is the repository-wide CMake entry point. It delegates to the kernel
 # build and (in future phases) to userspace server builds.
@@ -6,7 +6,7 @@
 # Usage:
 #   cmake -S . -B build \
 #         -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
-#         -DUNHOX_BOOT_TESTS=ON
+#         -DUNHU_BOOT_TESTS=ON
 #   cmake --build build
 
 cmake_minimum_required(VERSION 3.20)
@@ -15,7 +15,7 @@ project(unhx LANGUAGES C ASM)
 # ---------------------------------------------------------------------------
 # Options
 # ---------------------------------------------------------------------------
-option(UNHOX_BOOT_TESTS "Include kernel boot self-tests" OFF)
+option(UNHU_BOOT_TESTS "Include kernel boot self-tests" OFF)
 
 # ---------------------------------------------------------------------------
 # Kernel (always built)

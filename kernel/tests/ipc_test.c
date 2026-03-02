@@ -1,11 +1,11 @@
 /*
- * kernel/tests/ipc_test.c — IPC milestone self-test for UNHOX (v0.2)
+ * kernel/tests/ipc_test.c — IPC milestone self-test for UNHU (v0.2)
  *
  * This is the formal Phase 1 milestone test.  It exercises the entire IPC
  * path end-to-end: task creation, port allocation, right distribution,
  * message send, and message receive.
  *
- * The test is compiled in only when UNHOX_BOOT_TESTS=ON is set in CMake.
+ * The test is compiled in only when UNHU_BOOT_TESTS=ON is set in CMake.
  * It is called from kernel_main() and halts with a clear pass/fail exit code.
  *
  * Reference: CMU Mach 3.0 paper (Accetta et al., 1986) §3 — IPC.
@@ -51,7 +51,7 @@ int ipc_test_run(void)
 {
     serial_putstr("\r\n");
     serial_putstr("========================================\r\n");
-    serial_putstr(" UNHOX IPC Milestone Test (v0.2)\r\n");
+    serial_putstr(" UNHU IPC Milestone Test (v0.2)\r\n");
     serial_putstr("========================================\r\n");
 
     /* --- Test 1: Create tasks --- */
@@ -179,11 +179,11 @@ done:
     if (fail_count == 0) {
         serial_putstr(" STATUS: PASS\r\n");
         serial_putstr("========================================\r\n");
-        serial_putstr("[UNHOX] IPC milestone v0.2 PASSED.\r\n");
+        serial_putstr("[UNHU] IPC milestone v0.2 PASSED.\r\n");
     } else {
         serial_putstr(" STATUS: FAIL\r\n");
         serial_putstr("========================================\r\n");
-        serial_putstr("[UNHOX] IPC milestone v0.2 FAILED.\r\n");
+        serial_putstr("[UNHU] IPC milestone v0.2 FAILED.\r\n");
     }
 
     return (fail_count > 0) ? 1 : 0;

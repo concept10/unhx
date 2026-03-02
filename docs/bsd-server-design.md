@@ -1,6 +1,6 @@
 # BSD Server Architecture
 
-Design document for the UNHOX BSD personality server — the component that
+Design document for the UNHU BSD personality server — the component that
 provides POSIX/Unix system call semantics on top of the Mach microkernel.
 
 ## Overview
@@ -9,7 +9,7 @@ In a Mach microkernel system, the kernel provides only IPC, VM, tasks, and
 threads. All Unix semantics — processes, signals, file descriptors, fork/exec —
 are implemented by a **userspace server** called the BSD server.
 
-UNHOX follows the same split as CMU Mach 3.0 + Lites and NeXTSTEP/XNU:
+UNHU follows the same split as CMU Mach 3.0 + Lites and NeXTSTEP/XNU:
 
 ```
   User Process

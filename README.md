@@ -1,8 +1,8 @@
-# UNHOX — U Is Not Hurd Or X
+# UNHU — U Is Not Hurd, it's µ
 
 > *The kernel Mach always wanted to become.*
 
-UNHOX is an open-source research and implementation project building a true
+UNHU is an open-source research and implementation project building a true
 running microkernel operating system grounded in the original design philosophy
 of the Mach kernel.
 
@@ -16,8 +16,8 @@ frameworks and desktop environment.
 ## Repository Structure
 
 ```
-unhox/
-├── kernel/           # UNHOX Mach microkernel (new code)
+unhu/
+├── kernel/           # UNHU Mach microkernel (new code)
 │   ├── ipc/          # Mach port IPC implementation
 │   ├── vm/           # Virtual memory subsystem
 │   ├── kern/         # Task, thread, scheduler
@@ -71,7 +71,7 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│            UNHOX Full Software Stack                        │
+│            UNHU Full Software Stack                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Workspace Manager  │  AppKit  │  Display Server (DPS)      │
 ├─────────────────────┼──────────┼────────────────────────────┤
@@ -95,7 +95,7 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 | v0.2 | IPC Works | Two tasks pass a Mach message |
 | v0.3 | Bootstrap | Bootstrap server, service registration |
 | v0.4 | BSD Server | Fork, exec, basic POSIX syscalls |
-| v0.5 | Shell | A shell prompt running on UNHOX |
+| v0.5 | Shell | A shell prompt running on UNHU |
 | v0.6 | Disk & FS | Boot from disk, read/write files |
 | v0.7 | Foundation | GNUstep Foundation app runs |
 | v0.8 | Display | Framebuffer + minimal window system |
@@ -111,8 +111,8 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 
 ## License
 
-- New UNHOX kernel code: **GPL-2.0-or-later**
-- New UNHOX servers: **LGPL-2.1-or-later**
+- New UNHU kernel code: **GPL-2.0-or-later**
+- New UNHU servers: **LGPL-2.1-or-later**
 - GNUstep submodules: **LGPL-2.1** (see submodule repos)
 - Documentation: **CC BY-SA 4.0**
 - XNU-derived portions: **APSL 2.0** (see `docs/sources.md`)
@@ -124,4 +124,4 @@ See [docs/roadmap.md](docs/roadmap.md) for the development roadmap and
 
 ---
 
-*UNHOX (c) 2026 tracey — Free Software · Open Research*
+*UNHU (c) 2026 tracey — Free Software · Open Research*

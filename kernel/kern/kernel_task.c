@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kernel_task.c — Kernel bootstrap and IPC smoke test for UNHOX
+ * kernel/kern/kernel_task.c — Kernel bootstrap and IPC smoke test for UNHU
  *
  * This file creates the kernel task and implements the Phase 1 milestone
  * test that proves Mach IPC works end-to-end.
@@ -34,9 +34,9 @@ void kernel_task_init(void)
     kernel_task_create();
 
     if (kernel_task_ptr())
-        serial_putstr("[UNHOX] kernel task (task 0) created\r\n");
+        serial_putstr("[UNHU] kernel task (task 0) created\r\n");
     else
-        serial_putstr("[UNHOX] ERROR: failed to create kernel task\r\n");
+        serial_putstr("[UNHU] ERROR: failed to create kernel task\r\n");
 }
 
 /*
@@ -50,17 +50,17 @@ struct test_message {
 
 void create_test_tasks(void)
 {
-    serial_putstr("[UNHOX IPC] beginning IPC smoke test...\r\n");
+    serial_putstr("[UNHU IPC] beginning IPC smoke test...\r\n");
 
     /* Step 1: Create two tasks */
     struct task *task_a = task_create(kernel_task_ptr());
     struct task *task_b = task_create(kernel_task_ptr());
 
     if (!task_a || !task_b) {
-        serial_putstr("[UNHOX IPC] FAIL: could not create test tasks\r\n");
+        serial_putstr("[UNHU IPC] FAIL: could not create test tasks\r\n");
         return;
     }
-    serial_putstr("[UNHOX IPC] task_a and task_b created\r\n");
+    serial_putstr("[UNHU IPC] task_a and task_b created\r\n");
 
     /*
      * Step 2: Allocate a port in task_a's space with a RECEIVE right.
@@ -76,7 +76,7 @@ void create_test_tasks(void)
     kern_return_t kr = ipc_space_alloc_name(space_a, &port_name_a);
     if (kr != KERN_SUCCESS) {
         ipc_space_unlock(space_a);
-        serial_putstr("[UNHOX IPC] FAIL: could not allocate port name\r\n");
+        serial_putstr("[UNHU IPC] FAIL: could not allocate port name\r\n");
         return;
     }
 
@@ -84,7 +84,7 @@ void create_test_tasks(void)
     struct ipc_port *port = ipc_port_alloc(task_a);
     if (!port) {
         ipc_space_unlock(space_a);
-        serial_putstr("[UNHOX IPC] FAIL: could not allocate port\r\n");
+        serial_putstr("[UNHU IPC] FAIL: could not allocate port\r\n");
         return;
     }
 
@@ -93,7 +93,7 @@ void create_test_tasks(void)
     space_a->is_table[port_name_a].ie_bits   = IE_BITS_RECEIVE;
 
     ipc_space_unlock(space_a);
-    serial_putstr("[UNHOX IPC] port allocated in task_a (receive right)\r\n");
+    serial_putstr("[UNHU IPC] port allocated in task_a (receive right)\r\n");
 
     /*
      * Step 3: Grant task_b a SEND right to the same port.
@@ -110,7 +110,7 @@ void create_test_tasks(void)
     kr = ipc_space_alloc_name(space_b, &port_name_b);
     if (kr != KERN_SUCCESS) {
         ipc_space_unlock(space_b);
-        serial_putstr("[UNHOX IPC] FAIL: could not allocate port name in task_b\r\n");
+        serial_putstr("[UNHU IPC] FAIL: could not allocate port name in task_b\r\n");
         return;
     }
 
@@ -124,7 +124,7 @@ void create_test_tasks(void)
     ipc_port_unlock(port);
 
     ipc_space_unlock(space_b);
-    serial_putstr("[UNHOX IPC] send right granted to task_b\r\n");
+    serial_putstr("[UNHU IPC] send right granted to task_b\r\n");
 
     /*
      * Step 4: task_b sends a message to the port.
@@ -141,12 +141,12 @@ void create_test_tasks(void)
 
     kr = mach_msg_send(task_b, &send_msg.header, sizeof(send_msg));
     if (kr != KERN_SUCCESS) {
-        serial_putstr("[UNHOX IPC] FAIL: mach_msg_send returned error ");
+        serial_putstr("[UNHU IPC] FAIL: mach_msg_send returned error ");
         serial_puthex((uint64_t)kr);
         serial_putstr("\r\n");
         return;
     }
-    serial_putstr("[UNHOX IPC] task_b sent message\r\n");
+    serial_putstr("[UNHU IPC] task_b sent message\r\n");
 
     /*
      * Step 5: task_a receives the message.
@@ -158,7 +158,7 @@ void create_test_tasks(void)
     kr = mach_msg_receive(task_a, port_name_a,
                           &recv_msg, sizeof(recv_msg), &recv_size);
     if (kr != KERN_SUCCESS) {
-        serial_putstr("[UNHOX IPC] FAIL: mach_msg_receive returned error ");
+        serial_putstr("[UNHU IPC] FAIL: mach_msg_receive returned error ");
         serial_puthex((uint64_t)kr);
         serial_putstr("\r\n");
         return;
@@ -167,20 +167,20 @@ void create_test_tasks(void)
     /*
      * Step 6: Verify the message contents.
      */
-    serial_putstr("[UNHOX IPC] message received: ");
+    serial_putstr("[UNHU IPC] message received: ");
     serial_putstr(recv_msg.text);
     serial_putstr("\r\n");
 
     if (recv_msg.magic == 0xDEADBEEF &&
         kstrcmp(recv_msg.text, "hello") == 0)
     {
-        serial_putstr("[UNHOX IPC] magic: ");
+        serial_putstr("[UNHU IPC] magic: ");
         serial_puthex((uint64_t)recv_msg.magic);
         serial_putstr(" (correct)\r\n");
-        serial_putstr("[UNHOX] Phase 1 complete. Mach IPC operational.\r\n");
+        serial_putstr("[UNHU] Phase 1 complete. Mach IPC operational.\r\n");
     } else {
-        serial_putstr("[UNHOX IPC] FAIL: message contents mismatch\r\n");
-        serial_putstr("[UNHOX IPC] expected magic=0xDEADBEEF, got ");
+        serial_putstr("[UNHU IPC] FAIL: message contents mismatch\r\n");
+        serial_putstr("[UNHU IPC] expected magic=0xDEADBEEF, got ");
         serial_puthex((uint64_t)recv_msg.magic);
         serial_putstr("\r\n");
     }

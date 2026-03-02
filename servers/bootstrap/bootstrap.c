@@ -1,5 +1,5 @@
 /*
- * servers/bootstrap/bootstrap.c — Bootstrap server main entry for UNHOX
+ * servers/bootstrap/bootstrap.c — Bootstrap server main entry for UNHU
  *
  * The bootstrap server is the first userspace task.  In the full Mach
  * design it runs as a separate process with its own address space, receiving
@@ -41,26 +41,26 @@ void bootstrap_main(void)
     /* Register some placeholder services to demonstrate the mechanism */
     int r;
 
-    r = bootstrap_register("com.unhox.kernel", 1);
+    r = bootstrap_register("com.unhu.kernel", 1);
     if (r == BOOTSTRAP_SUCCESS)
-        serial_putstr("[bootstrap] registered: com.unhox.kernel\r\n");
+        serial_putstr("[bootstrap] registered: com.unhu.kernel\r\n");
 
-    r = bootstrap_register("com.unhox.ipc_test", 2);
+    r = bootstrap_register("com.unhu.ipc_test", 2);
     if (r == BOOTSTRAP_SUCCESS)
-        serial_putstr("[bootstrap] registered: com.unhox.ipc_test\r\n");
+        serial_putstr("[bootstrap] registered: com.unhu.ipc_test\r\n");
 
     /* Verify lookup works */
     uint32_t port = 0;
-    r = bootstrap_lookup("com.unhox.kernel", &port);
+    r = bootstrap_lookup("com.unhu.kernel", &port);
     if (r == BOOTSTRAP_SUCCESS && port == 1)
-        serial_putstr("[bootstrap] lookup com.unhox.kernel → port 1 (OK)\r\n");
+        serial_putstr("[bootstrap] lookup com.unhu.kernel → port 1 (OK)\r\n");
 
-    r = bootstrap_lookup("com.unhox.nonexistent", &port);
+    r = bootstrap_lookup("com.unhu.nonexistent", &port);
     if (r == BOOTSTRAP_UNKNOWN_SERVICE)
-        serial_putstr("[bootstrap] lookup com.unhox.nonexistent → not found (OK)\r\n");
+        serial_putstr("[bootstrap] lookup com.unhu.nonexistent → not found (OK)\r\n");
 
     /* Verify duplicate registration is rejected */
-    r = bootstrap_register("com.unhox.kernel", 99);
+    r = bootstrap_register("com.unhu.kernel", 99);
     if (r == BOOTSTRAP_NAME_IN_USE)
         serial_putstr("[bootstrap] duplicate registration rejected (OK)\r\n");
 

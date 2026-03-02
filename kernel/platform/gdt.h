@@ -1,5 +1,5 @@
 /*
- * kernel/platform/gdt.h — Global Descriptor Table for UNHOX (x86-64)
+ * kernel/platform/gdt.h — Global Descriptor Table for UNHU (x86-64)
  *
  * The GDT is required by x86-64 even in long mode: the CPU uses segment
  * selectors to look up privilege level and type information.  For a 64-bit

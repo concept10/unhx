@@ -1,8 +1,8 @@
-# .github/workflows/boot-test.yml — UNHOX kernel boot & IPC milestone test
+# .github/workflows/boot-test.yml — UNHU kernel boot & IPC milestone test
 #
 # Runs on every push to main:
 #   1. Installs an x86_64-elf cross-compiler and QEMU
-#   2. Builds the kernel with UNHOX_BOOT_TESTS=ON
+#   2. Builds the kernel with UNHU_BOOT_TESTS=ON
 #   3. Boots the kernel under QEMU
 #   4. Captures serial output
 #   5. Verifies the boot banner and IPC test results appear
@@ -44,7 +44,7 @@ jobs:
             -DCMAKE_C_COMPILER=x86_64-linux-gnu-gcc \
             -DCMAKE_ASM_COMPILER=x86_64-linux-gnu-gcc \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DUNHOX_BOOT_TESTS=ON
+            -DUNHU_BOOT_TESTS=ON
 
       - name: Build kernel
         run: cmake --build build --target unhx.elf

@@ -1,6 +1,6 @@
 # Build Setup
 
-How to build and run UNHOX from source.
+How to build and run UNHU from source.
 
 ## Quick Start
 
@@ -11,7 +11,7 @@ brew install llvm qemu
 # 2. Build the kernel
 cmake -S . -B build \
       -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
-      -DUNHOX_BOOT_TESTS=ON
+      -DUNHU_BOOT_TESTS=ON
 cmake --build build
 
 # 3. Run under QEMU
@@ -20,7 +20,7 @@ cmake --build build
 
 ## Prerequisites
 
-UNHOX uses Clang as a cross-compiler targeting `x86_64-unknown-elf`.
+UNHU uses Clang as a cross-compiler targeting `x86_64-unknown-elf`.
 
 | Tool | Purpose | Minimum Version |
 |------|---------|----------------|
@@ -60,7 +60,7 @@ All tools are pinned to exact versions in `flake.nix`.
 
 | CMake Option | Default | Description |
 |-------------|---------|-------------|
-| `UNHOX_BOOT_TESTS` | OFF | Compile kernel boot self-tests (IPC smoke test) |
+| `UNHU_BOOT_TESTS` | OFF | Compile kernel boot self-tests (IPC smoke test) |
 | `CMAKE_BUILD_TYPE` | - | Debug, Release, RelWithDebInfo |
 
 ## Build Commands
@@ -71,7 +71,7 @@ All tools are pinned to exact versions in `flake.nix`.
 cmake -S . -B build \
       -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
       -DCMAKE_BUILD_TYPE=Debug \
-      -DUNHOX_BOOT_TESTS=ON
+      -DUNHU_BOOT_TESTS=ON
 cmake --build build
 ```
 

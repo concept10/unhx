@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_entry.h — One slot in a task's port name space (UNHOX)
+ * kernel/ipc/ipc_entry.h — One slot in a task's port name space (UNHU)
  *
  * An ipc_entry is a single row in the ipc_space table.  Each row maps one
  * port name (a small integer visible to userspace) to an actual kernel port

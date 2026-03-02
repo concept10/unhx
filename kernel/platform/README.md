@@ -1,6 +1,6 @@
 # kernel/platform/
 
-Hardware Abstraction Layer (HAL) for UNHOX kernel.
+Hardware Abstraction Layer (HAL) for UNHU kernel.
 
 ## Targets
 

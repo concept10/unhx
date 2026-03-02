@@ -1,5 +1,5 @@
 /*
- * kernel/platform/boot.S — x86-64 boot entry for UNHOX
+ * kernel/platform/boot.S — x86-64 boot entry for UNHU
  *
  * Multiboot1-compliant boot header with the AOUT_KLUDGE address fields,
  * which allows QEMU's built-in multiboot loader to load this 64-bit ELF

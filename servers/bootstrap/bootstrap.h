@@ -1,5 +1,5 @@
 /*
- * servers/bootstrap/bootstrap.h — Bootstrap server public interface for UNHOX
+ * servers/bootstrap/bootstrap.h — Bootstrap server public interface for UNHU
  *
  * The bootstrap server is the first task started by the kernel after boot.
  * Every other server registers with it and looks up other servers through it.
@@ -17,9 +17,9 @@
  *      the bootstrap port.
  *   2. Every new task gets a send right to the bootstrap port.
  *   3. A server registers its service port with bootstrap:
- *        bootstrap_register("com.unhox.vfs", vfs_port)
+ *        bootstrap_register("com.unhu.vfs", vfs_port)
  *   4. A client looks up a service by name:
- *        bootstrap_lookup("com.unhox.vfs") → vfs_port send right
+ *        bootstrap_lookup("com.unhu.vfs") → vfs_port send right
  *   5. The client now has a send right to the VFS server and can
  *      communicate directly — no further involvement from bootstrap.
  *
@@ -58,7 +58,7 @@ void bootstrap_init(void);
 /*
  * bootstrap_register — register a service port under a name.
  *
- * name: null-terminated service name (e.g. "com.unhox.vfs")
+ * name: null-terminated service name (e.g. "com.unhu.vfs")
  * port: the service's port identifier (opaque handle)
  *
  * Returns BOOTSTRAP_SUCCESS or an error code.

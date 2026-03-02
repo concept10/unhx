@@ -5,7 +5,7 @@ CMU Mach 3.0 reference archive.
 ## Overview
 
 The original Carnegie Mellon University Mach 3.0 kernel — the primary design
-reference for UNHOX. Developed 1985–1994 by Richard Rashid, Avie Tevanian,
+reference for UNHU. Developed 1985–1994 by Richard Rashid, Avie Tevanian,
 and colleagues.
 
 ## Source Locations
