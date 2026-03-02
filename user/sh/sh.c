@@ -134,12 +134,35 @@ void shell_main(void)
             sh_print("  echo <text>   print text to serial\r\n");
             sh_print("  help          show this help\r\n");
             sh_print("  exit          exit the shell\r\n");
+            sh_print("  /path         exec ELF from VFS (example: /bin/init.elf)\r\n");
         }
 
         /* exit */
         else if (sh_strcmp(line, "exit") == 0) {
             sh_print("Goodbye.\r\n");
             exit(0);
+        }
+
+        /* /path [args...] */
+        else if (line[0] == '/') {
+            char *cmd = line;
+            char *argv[2];
+
+            for (int i = 0; line[i]; i++) {
+                if (line[i] == ' ') {
+                    line[i] = '\0';
+                    break;
+                }
+            }
+
+            argv[0] = cmd;
+            argv[1] = (char *)0;
+
+            if (execve(cmd, argv, (char *const *)0) < 0) {
+                sh_print("exec failed: ");
+                sh_print(cmd);
+                sh_print("\r\n");
+            }
         }
 
         else {

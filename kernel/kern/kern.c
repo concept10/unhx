@@ -45,6 +45,9 @@ extern void serial_putstr(const char *s);
 extern void vfs_server_main(void);
 extern void bsd_server_main(void);
 
+const uint8_t *g_boot_initrd_data = (const uint8_t *)0;
+uint64_t g_boot_initrd_size = 0;
+
 void kern_init(void)
 {
     /* Create the kernel task (task 0) with its ipc_space */
@@ -248,13 +251,6 @@ done:
 
 static void vfs_test_thread(void)
 {
-    extern void serial_putstr(const char *s);
-    extern void serial_puthex(uint64_t val);
-    
-    serial_putstr("[vfs-test] thread ID=");
-    serial_puthex((uint64_t)sched_current());
-    serial_putstr("\r\n");
-    
     /* Spin until the VFS server has set vfs_port */
     while (!vfs_port)
         for (volatile int i = 0; i < 10000; i++)
@@ -350,6 +346,69 @@ static void vfs_test_thread(void)
         serial_putstr(" result=");
         serial_puthex(read_rep->result);
         serial_putstr(")\r\n");
+    }
+
+    /* ---- OPEN /bin/init.elf for exec path verification ---- */
+    struct ipc_port *elf_open_reply = ipc_port_alloc(ktask);
+    if (!elf_open_reply) {
+        serial_putstr("[vfs-test] FAIL — could not allocate /bin/init.elf reply port\r\n");
+        goto done;
+    }
+
+    vfs_open_msg_t elf_open_req;
+    kmemset(&elf_open_req, 0, sizeof(elf_open_req));
+    elf_open_req.hdr.msgh_size = sizeof(elf_open_req);
+    elf_open_req.hdr.msgh_id   = VFS_MSG_OPEN;
+    kstrncpy(elf_open_req.path, "/bin/init.elf", VFS_PATH_MAX);
+    elf_open_req.reply_port    = (uint64_t)elf_open_reply;
+
+    ipc_mqueue_send(vfs_port->ip_messages, &elf_open_req, sizeof(elf_open_req));
+    mr = ipc_mqueue_receive(elf_open_reply->ip_messages,
+                            rbuf, sizeof(rbuf), &out_size, 1 /* blocking */);
+    if (mr != MACH_MSG_SUCCESS) {
+        serial_putstr("[vfs-test] FAIL — did not receive /bin/init.elf open reply\r\n");
+        goto done;
+    }
+
+    vfs_reply_msg_t *elf_open_rep = (vfs_reply_msg_t *)rbuf;
+    if (elf_open_rep->retcode != VFS_SUCCESS || elf_open_rep->result < 0) {
+        serial_putstr("[vfs-test] FAIL — /bin/init.elf not available in ramfs\r\n");
+        goto done;
+    }
+
+    struct ipc_port *elf_read_reply = ipc_port_alloc(ktask);
+    if (!elf_read_reply) {
+        serial_putstr("[vfs-test] FAIL — could not allocate /bin/init.elf read reply port\r\n");
+        goto done;
+    }
+
+    vfs_read_msg_t elf_read_req;
+    kmemset(&elf_read_req, 0, sizeof(elf_read_req));
+    elf_read_req.hdr.msgh_size = sizeof(elf_read_req);
+    elf_read_req.hdr.msgh_id   = VFS_MSG_READ;
+    elf_read_req.fd            = elf_open_rep->result;
+    elf_read_req.count         = 4;
+    elf_read_req.offset        = 0;
+    elf_read_req.reply_port    = (uint64_t)elf_read_reply;
+
+    ipc_mqueue_send(vfs_port->ip_messages, &elf_read_req, sizeof(elf_read_req));
+    mr = ipc_mqueue_receive(elf_read_reply->ip_messages,
+                            rbuf, sizeof(rbuf), &out_size, 1 /* blocking */);
+    if (mr != MACH_MSG_SUCCESS) {
+        serial_putstr("[vfs-test] FAIL — did not receive /bin/init.elf read reply\r\n");
+        goto done;
+    }
+
+    vfs_reply_msg_t *elf_read_rep = (vfs_reply_msg_t *)rbuf;
+    if (elf_read_rep->retcode == VFS_SUCCESS &&
+        elf_read_rep->result >= 4 &&
+        elf_read_rep->data[0] == 0x7F &&
+        elf_read_rep->data[1] == 'E' &&
+        elf_read_rep->data[2] == 'L' &&
+        elf_read_rep->data[3] == 'F') {
+        serial_putstr("[vfs-test] PASS — /bin/init.elf available for exec\r\n");
+    } else {
+        serial_putstr("[vfs-test] FAIL — /bin/init.elf ELF header check failed\r\n");
     }
 
 done:
@@ -493,7 +552,7 @@ void kernel_main(uint32_t mb_info_phys)
          * Blocking IPC test:
          * Thread "receiver" blocks on receive, thread "sender" sends after delay.
          */
-        /* Disabled to reduce scheduling contention */
+        /* Disabled for deterministic v0.4 userspace verification. */
         #if 0
         blocking_test_port = ipc_port_alloc(ktask);
         if (blocking_test_port) {
@@ -537,6 +596,9 @@ void kernel_main(uint32_t mb_info_phys)
 
             const void *elf_data = (const void *)(uint64_t)mods[0].mod_start;
             uint64_t    elf_size = mods[0].mod_end - mods[0].mod_start;
+
+            g_boot_initrd_data = (const uint8_t *)elf_data;
+            g_boot_initrd_size = elf_size;
 
             serial_putstr("[UNHOX] found init module, creating user task\r\n");
 

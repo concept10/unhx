@@ -21,6 +21,7 @@
 
 /* Forward declaration */
 struct ipc_port;
+struct interrupt_frame;
 
 /* BSD message IDs */
 #define BSD_MSG_WRITE   300
@@ -79,5 +80,13 @@ typedef struct {
  * ------------------------------------------------------------------------- */
 
 void bsd_server_main(void);
+
+/*
+ * bsd_exec_current — replace current user task image with an ELF loaded
+ * from ramfs via the VFS server, then redirect syscall return frame.
+ *
+ * Returns 0 on success, -1 on failure.
+ */
+int bsd_exec_current(const char *path, struct interrupt_frame *frame);
 
 #endif /* BSD_MSG_H */

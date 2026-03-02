@@ -34,4 +34,8 @@ void kern_init(void);
  */
 void kernel_main(uint32_t mb_info_phys);
 
+/* Boot initrd module image (set during kernel_main module parsing). */
+extern const uint8_t *g_boot_initrd_data;
+extern uint64_t g_boot_initrd_size;
+
 #endif /* KERN_H */

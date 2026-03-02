@@ -19,7 +19,6 @@
 
 extern void serial_putstr(const char *s);
 extern void serial_puthex(uint64_t val);
-extern struct thread *sched_current(void);
 
 /* -------------------------------------------------------------------------
  * Global VFS port — set before entering the message loop.
@@ -33,11 +32,6 @@ struct ipc_port *vfs_port = (void *)0;
 
 void vfs_server_main(void)
 {
-    extern void serial_puthex(uint64_t val);
-    serial_putstr("[vfs-server] thread ID=");
-    serial_puthex((uint64_t)sched_current());
-    serial_putstr("\r\n");
-    
     serial_putstr("[vfs] initialising VFS/ramfs server\r\n");
 
     ramfs_init();
@@ -73,7 +67,6 @@ void vfs_server_main(void)
     uint8_t buf[sizeof(vfs_write_msg_t) + 16];
 
     for (;;) {
-        serial_putstr("[vfs] Calling receive...\r\n");
         mach_msg_size_t msg_size = 0;
         mach_msg_return_t mr = ipc_mqueue_receive(
             vfs_port->ip_messages,
