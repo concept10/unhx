@@ -56,13 +56,11 @@ static int bsd_vfs_open(const char *path, struct ipc_port *reply)
     kstrncpy(req.path, path, VFS_PATH_MAX);
     req.reply_port    = (uint64_t)reply;
 
-    serial_putstr("[bsd-vfs-open] sending OPEN message...\r\n");
     if (ipc_mqueue_send(vfs_port->ip_messages, &req, sizeof(req)) != MACH_MSG_SUCCESS) {
         serial_putstr("[bsd-vfs-open] ERROR: send failed\r\n");
         return -1;
     }
 
-    serial_putstr("[bsd-vfs-open] waiting for reply...\r\n");
     vfs_reply_msg_t rep;
     mach_msg_size_t out_size = 0;
     int got_reply = 0;
@@ -80,12 +78,6 @@ static int bsd_vfs_open(const char *path, struct ipc_port *reply)
         serial_putstr("[bsd-vfs-open] ERROR: timed out waiting for OPEN reply\r\n");
         goto out;
     }
-
-    serial_putstr("[bsd-vfs-open] got reply, retcode=");
-    serial_puthex((uint64_t)rep.retcode);
-    serial_putstr(" result=");
-    serial_puthex((uint64_t)rep.result);
-    serial_putstr("\r\n");
 
     if (rep.retcode != VFS_SUCCESS)
         goto out;
@@ -165,20 +157,12 @@ static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, ui
         return -1;
     }
 
-    serial_putstr("[bsd-vfs] opening: ");
-    serial_putstr(path);
-    serial_putstr("\r\n");
-
     int fd = bsd_vfs_open(path, reply);
     if (fd < 0) {
         serial_putstr("[bsd-vfs] ERROR: open failed\r\n");
         ipc_port_destroy(reply);
         return -1;
     }
-
-    serial_putstr("[bsd-vfs] open succeeded, fd=");
-    serial_puthex((uint64_t)fd);
-    serial_putstr("\r\n");
 
     uint32_t off = 0;
     for (;;) {
@@ -191,12 +175,6 @@ static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, ui
             return -1;
         }
 
-        serial_putstr("[bsd-vfs] reading chunk at offset=");
-        serial_puthex((uint64_t)off);
-        serial_putstr(" want=");
-        serial_puthex((uint64_t)want);
-        serial_putstr("\r\n");
-
         int n = bsd_vfs_read_chunk(fd, off, dst + off, want, reply);
         if (n < 0) {
             serial_putstr("[bsd-vfs] ERROR: read chunk failed\r\n");
@@ -204,19 +182,10 @@ static int bsd_vfs_read_all(const char *path, uint8_t *dst, uint32_t dst_cap, ui
             return -1;
         }
         if (n == 0) {
-            serial_putstr("[bsd-vfs] EOF reached\r\n");
             break;
         }
-
-        serial_putstr("[bsd-vfs] read ");
-        serial_puthex((uint64_t)n);
-        serial_putstr(" bytes\r\n");
         off += (uint32_t)n;
     }
-
-    serial_putstr("[bsd-vfs] total read: ");
-    serial_puthex((uint64_t)off);
-    serial_putstr(" bytes\r\n");
 
     if (size_out)
         *size_out = off;
@@ -229,10 +198,6 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
 {
     if (!path || !frame)
         return -1;
-
-    serial_putstr("[bsd-exec] starting exec: ");
-    serial_putstr(path);
-    serial_putstr("\r\n");
 
     struct thread *cur_th = sched_current();
     if (!cur_th || !cur_th->th_task) {
@@ -250,7 +215,6 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
         g_boot_initrd_size <= BSD_EXEC_MAX_IMAGE) {
         image = g_boot_initrd_data;
         image_size = (uint32_t)g_boot_initrd_size;
-        serial_putstr("[bsd-exec] using boot initrd image\r\n");
     } else {
         uint8_t *image_buf = (uint8_t *)kalloc(BSD_EXEC_MAX_IMAGE);
         if (!image_buf) {
@@ -258,7 +222,6 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
             return -1;
         }
 
-        serial_putstr("[bsd-exec] reading image from VFS\r\n");
         if (bsd_vfs_read_all(path, image_buf, BSD_EXEC_MAX_IMAGE, &image_size) != 0) {
             serial_putstr("[bsd-exec] ERROR: VFS read failed\r\n");
             return -1;
@@ -266,10 +229,6 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
 
         image = image_buf;
     }
-
-    serial_putstr("[bsd-exec] image size: ");
-    serial_puthex((uint64_t)image_size);
-    serial_putstr("\r\n");
 
     uint64_t new_cr3 = paging_create_task_pml4();
     if (!new_cr3) {
@@ -289,7 +248,6 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
     task->t_map = new_map;
     task->t_cr3 = new_cr3;
 
-    serial_putstr("[bsd-exec] loading ELF\r\n");
     uint64_t entry = 0;
     if (elf_load(task, image, image_size, &entry) != KERN_SUCCESS) {
         serial_putstr("[bsd-exec] ERROR: elf_load failed\r\n");
@@ -298,7 +256,6 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
         return -1;
     }
 
-    serial_putstr("[bsd-exec] mapping user stack\r\n");
     if (vm_map_enter(task->t_map, BSD_USER_STACK_BASE, BSD_USER_STACK_SIZE,
                      VM_PROT_READ | VM_PROT_WRITE) != KERN_SUCCESS) {
         serial_putstr("[bsd-exec] ERROR: vm_map_enter for stack failed\r\n");
@@ -313,10 +270,7 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
     frame->rsp = user_rsp;
     frame->rax = 0;
 
-    serial_putstr("[bsd-exec] switching address space\r\n");
     __asm__ volatile ("movq %0, %%cr3" : : "r"(new_cr3) : "memory");
-
-    serial_putstr("[bsd-exec] exec complete\r\n");
 
     (void)old_map;
     (void)old_cr3;

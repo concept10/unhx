@@ -159,17 +159,10 @@ static int64_t sys_fork(struct interrupt_frame *frame)
 
 static int64_t sys_exec(struct interrupt_frame *frame)
 {
-    serial_putstr("[sys_exec] syscall entered\r\n");
-
     const char *path = (const char *)frame->rdi;
     if (!path || path[0] == '\0') {
-        serial_putstr("[sys_exec] ERROR: path is NULL or empty\r\n");
         return -1;
     }
-
-    serial_putstr("[sys_exec] calling bsd_exec_current with path: ");
-    serial_putstr(path);
-    serial_putstr("\r\n");
 
     return (int64_t)bsd_exec_current(path, frame);
 }
