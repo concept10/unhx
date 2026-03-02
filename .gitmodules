@@ -7,3 +7,9 @@
 [submodule "frameworks/AppKit"]
 	path = frameworks/AppKit
 	url = https://github.com/gnustep/libs-gui.git
+[submodule "frameworks/libdispatch"]
+	path = frameworks/libdispatch
+	url = https://github.com/apple/swift-corelibs-libdispatch.git
+[submodule "frameworks/CoreFoundation"]
+	path = frameworks/CoreFoundation
+	url = https://github.com/apple/swift-corelibs-foundation.git
