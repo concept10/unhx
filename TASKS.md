@@ -55,58 +55,66 @@ Check off items as they are completed.
 
 ---
 
-## Phase 1 — Kernel Core
+## Phase 1 — Kernel Core ✅
 
-### x86-64 Platform Bring-up
-- [ ] Write `kernel/platform/x86_64/boot.S` — Multiboot2 entry point
-- [ ] Write `kernel/platform/x86_64/gdt.c` — Global Descriptor Table setup
-- [ ] Write `kernel/platform/x86_64/idt.c` — Interrupt Descriptor Table
-- [ ] Write `kernel/platform/x86_64/pmap.c` — 4-level page table management
-- [ ] Write `kernel/platform/x86_64/uart.c` — 16550 serial console driver
-- [ ] Verify: kernel boots under QEMU and prints "UNHOX" via serial
-- [ ] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test
+**Milestone v0.1 (Mach Boots)**: PASSED — kernel boots under QEMU, serial output
+**Milestone v0.2 (IPC Works)**: PASSED — 13/13 tests, two tasks pass a Mach message
+**Milestone v0.3 (Bootstrap)**: PASSED — bootstrap server registers services
 
-### Physical Memory
-- [ ] Write `kernel/vm/vm_page.c` — physical page frame allocator
-- [ ] Parse Multiboot memory map to initialize page allocator
-- [ ] Write unit test: allocate and free physical pages
+> Note: File paths below reflect actual implementation, which diverged from the
+> original plan (flat `kernel/platform/` layout instead of `kernel/platform/x86_64/`,
+> some files consolidated).
 
-### Kernel Heap
-- [ ] Write `kernel/kern/kmem.c` — kernel heap allocator (simple slab or buddy)
-- [ ] Write unit test: allocate and free kernel objects
+### x86-64 Platform Bring-up ✅
+- [x] Write `kernel/platform/boot.S` — Multiboot entry, 32→64 mode transition
+- [x] Write `kernel/platform/gdt.c` — Global Descriptor Table setup
+- [x] Write `kernel/platform/paging.c` — 4-level page table management (static setup)
+- [x] Write `kernel/platform/platform.c` — 16550 serial console driver (COM1)
+- [x] Verify: kernel boots under QEMU and prints "UNHOX" via serial
+- [x] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test
+- [x] CI: `.github/workflows/boot-test.yml` — automated boot & IPC verification
+- [ ] Write `kernel/platform/idt.c` — Interrupt Descriptor Table *(deferred to Phase 2 — requires PIC init, IRQ routing)*
 
-### Tasks and Threads
-- [ ] Write `kernel/kern/task.c` — task create, terminate, reference counting
-- [ ] Write `kernel/kern/thread.c` — thread create, context save/restore
-- [ ] Write `kernel/platform/x86_64/context.S` — context switch assembly
-- [ ] Write `kernel/kern/sched.c` — basic round-robin scheduler
-- [ ] Verify: two threads run concurrently and print alternating output
+### Physical Memory ✅
+- [x] Write `kernel/vm/vm_page.c` — physical page frame allocator (free-list, 512 pages)
+- [ ] Parse Multiboot memory map to initialise page allocator *(deferred — uses hardcoded 2–4 MB range)*
 
-### Virtual Memory
-- [ ] Write `kernel/vm/vm_map.c` — per-task address space management
-- [ ] Write `kernel/vm/vm_object.c` — backing memory object lifecycle
-- [ ] Write `kernel/vm/vm_fault.c` — page fault handler
-- [ ] Verify: user task runs in its own address space
+### Kernel Heap ✅
+- [x] Write `kernel/kern/kalloc.c` — kernel heap allocator (256 KB bump allocator)
+- [ ] Implement real deallocation *(deferred to Phase 2 — zone-based allocator, kfree is no-op)*
 
-### IPC
-- [ ] Write `kernel/ipc/ipc_port.c` — Mach port creation and lifecycle
-- [ ] Write `kernel/ipc/ipc_space.c` — per-task port name space
-- [ ] Write `kernel/ipc/ipc_right.c` — port right management
-- [ ] Write `kernel/ipc/ipc_mqueue.c` — message queue with blocking
-- [ ] Write `kernel/ipc/ipc_kmsg.c` — kernel message allocation
-- [ ] Write `kernel/ipc/mach_msg.c` — `mach_msg()` trap
-- [ ] Write `tests/ipc/ipc_roundtrip_test.c` — two-task message-passing test
-- [ ] Verify milestone v0.2: two tasks pass a Mach message
+### Tasks and Threads ✅
+- [x] Write `kernel/kern/task.c` — task create, terminate, reference counting
+- [x] Write `kernel/kern/thread.c` — thread create, context save/restore
+- [x] Write `kernel/platform/context_switch.S` — context switch assembly (callee-saved regs + RSP/RIP)
+- [x] Write `kernel/kern/sched.c` — round-robin scheduler (cooperative; preemptive deferred to Phase 2)
+- [x] Verify: IPC smoke test exercises two tasks exchanging messages
 
-### Bootstrap Server
-- [ ] Write `kernel/kern/bootstrap.c` — initial service registration
-- [ ] Verify milestone v0.3: bootstrap server registers device and BSD servers
+### Virtual Memory (Partial)
+- [x] Write `kernel/vm/vm.c` + `kernel/vm/vm_map.h` — vm_map struct and create
+- [ ] Write `kernel/vm/vm_object.c` — backing memory object lifecycle *(deferred to Phase 2)*
+- [ ] Write `kernel/vm/vm_fault.c` — page fault handler *(deferred — requires IDT)*
+- [ ] Verify: user task runs in its own address space *(deferred — all tasks share kernel space in Phase 1)*
 
-### IPC Performance Baseline
-- [ ] Write `tests/ipc/ipc_perf.c` — null Mach message round-trip benchmark
-- [ ] Run benchmark under QEMU and record baseline
+### IPC ✅
+- [x] Write `kernel/ipc/ipc.c` — port creation/lifecycle + per-task port name space (consolidated `ipc_port` + `ipc_space`)
+- [x] Write `kernel/ipc/ipc_entry.h` — port right management (right bits, capability checks)
+- [x] Write `kernel/ipc/ipc_mqueue.c` — message queue (non-blocking; blocking deferred to Phase 2)
+- [x] Write `kernel/ipc/ipc_kmsg.c` — `mach_msg_send()` / `mach_msg_receive()` implementation
+- [x] Write `kernel/tests/ipc_test.c` — 13-assertion milestone test (task creation, port alloc, send/receive, capability enforcement)
+- [x] Verify milestone v0.2: two tasks pass a Mach message — **13/13 PASS**
+
+### Bootstrap Server ✅
+- [x] Write `servers/bootstrap/bootstrap.c` + `registry.c` — name→port registry (64-service capacity)
+- [x] Verify milestone v0.3: bootstrap server registers services, lookup works, duplicate rejection works
+
+### IPC Performance Baseline ✅
+- [x] Write `kernel/tests/ipc_perf.c` — null message send/receive/round-trip benchmark (TSC-based)
+- [x] Run benchmark under QEMU and record baseline
+  - Send: avg 6,520 cycles | Receive: avg 600 cycles | Round-trip: avg 6,780 cycles
+  - See `docs/research/ipc-performance.md` for full results
 - [ ] Run benchmark on bare metal (when available) and record
-- [ ] Document results in `docs/research/ipc-performance.md`
+- [x] Document results in `docs/research/ipc-performance.md`
 
 ---
 

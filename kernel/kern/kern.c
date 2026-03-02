@@ -17,6 +17,7 @@
 
 #ifdef UNHOX_BOOT_TESTS
 #include "tests/ipc_test.h"
+#include "tests/ipc_perf.h"
 #endif
 
 /* Serial output (platform layer) */
@@ -90,6 +91,12 @@ void kernel_main(void)
     } else {
         serial_putstr("\r\n[UNHOX] Milestone tests FAILED.\r\n");
     }
+
+    /*
+     * IPC performance baseline:
+     * Measures send/receive/round-trip costs in TSC cycles.
+     */
+    ipc_perf_run();
 #endif
 
     /* Halt — preemptive scheduler loop goes here in Phase 2 */

@@ -99,6 +99,7 @@ set(KERNEL_SOURCES
 if(UNHOX_BOOT_TESTS)
     list(APPEND KERNEL_SOURCES
         tests/ipc_test.c
+        tests/ipc_perf.c
     )
     add_compile_definitions(UNHOX_BOOT_TESTS=1)
 endif()
