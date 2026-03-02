@@ -1,55 +1,50 @@
 /*
  * kernel/platform/boot.S — x86-64 boot entry for UNHOX
  *
- * This file implements the Multiboot2-compliant boot header and the initial
- * machine state setup required before C code can run.
- *
- * Conforms to: The Multiboot2 Specification, version 2.0
- *   (https://www.gnu.org/software/grub/manual/multiboot2/multiboot2.html)
+ * Multiboot1-compliant boot header with the AOUT_KLUDGE address fields,
+ * which allows QEMU's built-in multiboot loader to load this 64-bit ELF
+ * without trying to parse the ELF headers (it only supports 32-bit ELFs).
  *
  * Sequence:
- *   1. Multiboot2 header — recognized by GRUB/QEMU direct-boot
- *   2. _start — entry point; GRUB enters here in 32-bit protected mode
- *   3. Set up minimal identity-mapped page tables covering the first 2 MB
+ *   1. Multiboot1 header (with address tag) — recognized by GRUB / QEMU
+ *   2. _start — entry point; entered in 32-bit protected mode
+ *   3. Set up identity-mapped page tables covering the first 2 MB
  *   4. Enable PAE, load CR3, enable long mode (EFER.LME), enable paging
  *   5. Far jump into 64-bit code segment (long_mode_entry)
  *   6. Load segment registers and set up a 16 KB stack
  *   7. Zero the BSS section
  *   8. Call kernel_main() — defined in kernel/kern/kern.c
  *
- * NOTE: Standard GRUB 2 with Multiboot2 enters in 32-bit protected mode even
- *       on a 64-bit machine, so we perform the 32→64 long-mode transition
- *       ourselves here.
- *
- * Reference: AMD64 Architecture Programmer's Manual Vol. 2, §14.6 —
- *            Enabling Long Mode.
- *            Multiboot2 Specification §3.1 — OS image format.
+ * Reference: AMD64 Architecture Programmer's Manual Vol. 2, §14.6;
+ *            Multiboot Specification v0.6.96 §3.1.
  */
 
 /* =========================================================================
- * Multiboot2 header constants
+ * Multiboot1 header constants
  * ========================================================================= */
-    .set MB2_MAGIC,      0xE85250D6
-    .set MB2_ARCH_I386,  0               /* 32-bit (x86) protected mode      */
-    .set MB2_HDR_LEN,    (mb2_header_end - mb2_header_start)
-    .set MB2_CHECKSUM,   -(MB2_MAGIC + MB2_ARCH_I386 + MB2_HDR_LEN)
+    .set MB_MAGIC,     0x1BADB002
+    .set MB_FLAGS,     0x00010003       /* ALIGN | MEMINFO | AOUT_KLUDGE     */
+    .set MB_CHECKSUM,  -(MB_MAGIC + MB_FLAGS)
 
 /* =========================================================================
- * Multiboot2 header — must appear within the first 32 KB of the image.
- * GRUB scans for MB2_MAGIC (0xE85250D6) to identify a Multiboot2 kernel.
+ * Multiboot1 header with address fields (AOUT_KLUDGE)
+ *
+ * The address fields tell the bootloader how to load the kernel as raw
+ * bytes, bypassing ELF parsing.  This is required because QEMU's built-in
+ * multiboot loader rejects 64-bit ELF images.
  * ========================================================================= */
-    .section .multiboot2, "a"
-    .align 8
-mb2_header_start:
-    .long   MB2_MAGIC
-    .long   MB2_ARCH_I386
-    .long   MB2_HDR_LEN
-    .long   MB2_CHECKSUM
-    /* End tag (required): type=0, flags=0, size=8 */
-    .word   0
-    .word   0
-    .long   8
-mb2_header_end:
+    .section .multiboot, "a"
+    .align 4
+mb_header:
+    .long   MB_MAGIC
+    .long   MB_FLAGS
+    .long   MB_CHECKSUM
+    /* Address fields (valid when bit 16 of flags is set) */
+    .long   mb_header               /* header_addr  — where this header is   */
+    .long   mb_header               /* load_addr    — start of loadable image*/
+    .long   __bss_start             /* load_end_addr— end of data segments   */
+    .long   __bss_end               /* bss_end_addr — end of BSS             */
+    .long   _start                  /* entry_addr   — 32-bit entry point     */
 
 /* =========================================================================
  * BSS: initial kernel stack (16 KB) and boot page tables
@@ -86,9 +81,9 @@ boot_gdt_desc:
 /* =========================================================================
  * 32-bit protected-mode entry point
  *
- * GRUB Multiboot2 calling convention (32-bit):
- *   EAX = 0x36D76289  (Multiboot2 boot magic)
- *   EBX = physical address of Multiboot2 information structure
+ * Multiboot1 calling convention (32-bit):
+ *   EAX = 0x2BADB002  (Multiboot boot magic)
+ *   EBX = physical address of Multiboot information structure
  * ========================================================================= */
     .section .text
     .code32
@@ -98,7 +93,7 @@ _start:
     cli                              /* disable interrupts — no IDT yet      */
 
     /*
-     * Save EBX (Multiboot2 info pointer) in ESI; we will pass it to
+     * Save EBX (Multiboot info pointer) in ESI; we will pass it to
      * kernel_main() via RDI once we reach 64-bit code.
      */
     movl    %ebx, %esi
@@ -196,15 +191,10 @@ long_mode_entry:
      * Call kernel_main() — defined in kernel/kern/kern.c.
      *
      * System V AMD64 ABI: first integer argument goes in RDI.
-     * We saved the Multiboot2 info pointer in ESI (32-bit), zero-extend
+     * We saved the Multiboot info pointer in ESI (32-bit), zero-extend
      * it into RDI so kernel_main() can parse the memory map.
-     *
-     * The stack is already 16-byte aligned (stack_top is 16-byte aligned
-     * per .align 16 above; call pushes an 8-byte return address making it
-     * 8-byte aligned, which is correct — the callee sees RSP%16 == 8
-     * on function entry per the ABI).
      */
-    movl    %esi, %edi              /* Multiboot2 info ptr (zero-extended)   */
+    movl    %esi, %edi              /* Multiboot info ptr (zero-extended)    */
     call    kernel_main
 
     /* kernel_main() must not return; halt if it does */
