@@ -40,6 +40,13 @@ static struct thread *thread_pool_alloc(void)
 static void thread_entry_trampoline(void)
 {
     /*
+     * Enable interrupts.  New threads are "born" from a context switch
+     * that may have occurred inside a timer ISR (where IF is cleared).
+     * We must re-enable interrupts so the thread can be preempted.
+     */
+    __asm__ volatile ("sti");
+
+    /*
      * The real entry point was stashed in R12 by thread_create().
      * We extract it via inline assembly and call it.
      */
