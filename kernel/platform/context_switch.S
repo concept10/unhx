@@ -101,3 +101,32 @@ thread_entry_trampoline:
     cli
     hlt
     jmp     .Ltrampoline_hlt
+
+/* ====================================================================
+ * user_entry_trampoline — iretq into ring 3 for newly created user threads.
+ *
+ * On entry from context_switch_asm's `ret`:
+ *   R12 = user entry point (RIP for ring 3)
+ *   R13 = user stack pointer (RSP for ring 3)
+ *
+ * Builds a 5-word iretq frame on the current (kernel) stack and
+ * executes iretq to enter ring 3.
+ *
+ * Segment selectors (must match gdt.h):
+ *   CS = 0x1B  (GDT_SELECTOR_UCODE: index 3, TI=0, RPL=3)
+ *   SS = 0x23  (GDT_SELECTOR_UDATA: index 4, TI=0, RPL=3)
+ *
+ * RFLAGS = 0x202: IF=1 (bit 9, interrupts enabled), reserved bit 1 = 1.
+ * ==================================================================== */
+
+    .globl  user_entry_trampoline
+    .type   user_entry_trampoline, @function
+user_entry_trampoline:
+    /* iretq pops in order: RIP, CS, RFLAGS, RSP, SS.
+     * Push in reverse so RIP ends up at the lowest address on the stack. */
+    pushq   $0x23           /* SS  = GDT_SELECTOR_UDATA | RPL=3          */
+    pushq   %r13            /* RSP = user-mode stack pointer              */
+    pushq   $0x202          /* RFLAGS: IF=1, reserved bit 1               */
+    pushq   $0x1B           /* CS  = GDT_SELECTOR_UCODE | RPL=3          */
+    pushq   %r12            /* RIP = user entry point                     */
+    iretq

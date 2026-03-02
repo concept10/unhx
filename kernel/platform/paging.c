@@ -223,16 +223,60 @@ uint64_t paging_kernel_pml4_phys(void)
 
 uint64_t paging_create_task_pml4(void)
 {
-    struct vm_page *pg = vm_page_alloc();
-    if (!pg)
+    struct vm_page *pml4_pg = vm_page_alloc();
+    if (!pml4_pg)
         return 0;
 
-    uint64_t *pml4 = (uint64_t *)pg->pg_phys_addr;
+    uint64_t *pml4 = (uint64_t *)pml4_pg->pg_phys_addr;
     kmemset(pml4, 0, 4096);
 
-    /* Share the kernel's identity and higher-half mappings */
-    pml4[0]   = kernel_pml4[0];    /* identity map: 0 → 0 (first 4 MB)  */
-    pml4[511] = kernel_pml4[511];  /* higher-half: VIRT_BASE → 0         */
+    /*
+     * Create a private PDPT for PML4[0].
+     *
+     * We cannot share the kernel's identity_pdpt directly, because
+     * in x86-64 all page-table levels on the walk to a user page must
+     * have PTE_USER set, and the kernel's identity entries do not.
+     * Using the shared PDPT would also cause any new user page-table
+     * entries to pollute the kernel's page tables.
+     *
+     * Instead, allocate a task-private PDPT with PTE_USER and a
+     * task-private PD with PTE_USER, then copy only the two 2 MB
+     * kernel huge-page entries (identity map, no PTE_USER — supervisor-
+     * only) into the private PD.  User pages mapped later via
+     * paging_map_page() will populate PD entries [2..511] with PTE_USER.
+     */
+    struct vm_page *pdpt_pg = vm_page_alloc();
+    struct vm_page *pd_pg   = vm_page_alloc();
+    if (!pdpt_pg || !pd_pg) {
+        if (pdpt_pg) vm_page_free(pdpt_pg);
+        if (pd_pg)   vm_page_free(pd_pg);
+        vm_page_free(pml4_pg);
+        return 0;
+    }
+
+    uint64_t *priv_pdpt = (uint64_t *)pdpt_pg->pg_phys_addr;
+    uint64_t *priv_pd   = (uint64_t *)pd_pg->pg_phys_addr;
+    kmemset(priv_pdpt, 0, 4096);
+    kmemset(priv_pd,   0, 4096);
+
+    /*
+     * Copy the two 2 MB identity-map entries into the private PD.
+     * These stay supervisor-only (no PTE_USER) so user code cannot
+     * read the kernel's identity-mapped memory.
+     */
+    uint64_t *kern_pdpt = (uint64_t *)(kernel_pml4[0] & PTE_ADDR_MASK);
+    uint64_t *kern_pd   = (uint64_t *)(kern_pdpt[0]   & PTE_ADDR_MASK);
+    priv_pd[0] = kern_pd[0];   /* 0x000000 – 0x1FFFFF: supervisor only */
+    priv_pd[1] = kern_pd[1];   /* 0x200000 – 0x3FFFFF: supervisor only */
+
+    /* Wire PDPT[0] → private PD (PTE_USER so user walks can proceed) */
+    priv_pdpt[0] = (uint64_t)priv_pd | PTE_PRESENT | PTE_WRITE | PTE_USER;
+
+    /* Wire PML4[0] → private PDPT (PTE_USER) */
+    pml4[0] = (uint64_t)priv_pdpt | PTE_PRESENT | PTE_WRITE | PTE_USER;
+
+    /* Share the higher-half kernel mapping (read-only for user) */
+    pml4[511] = kernel_pml4[511];
 
     return (uint64_t)pml4;
 }
@@ -367,8 +411,16 @@ void paging_destroy_task_pml4(uint64_t pml4_phys)
 
     uint64_t *pml4 = (uint64_t *)pml4_phys;
 
-    /* Free user-space entries only (skip 0 = identity, 511 = higher-half) */
-    for (int i = 1; i < 511; i++) {
+    /*
+     * Free all user-space entries: indices 0–510.
+     *
+     * PML4[0] was a task-private PDPT/PD (not the kernel's shared
+     * identity_pdpt), so it must be freed.  paging_free_pd_pages uses
+     * vm_page_lookup(), which returns NULL for kernel static arrays,
+     * so kernel-only tables are safely skipped.
+     * PML4[511] is the shared higher-half — skip it.
+     */
+    for (int i = 0; i < 511; i++) {
         if (pml4[i] & PTE_PRESENT) {
             uint64_t *pdpt = (uint64_t *)(pml4[i] & PTE_ADDR_MASK);
             paging_free_pd_pages(pdpt);

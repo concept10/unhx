@@ -32,6 +32,6 @@ void kern_init(void);
  * kernel_main — C entry point jumped to from boot.S after hardware setup.
  * Initialises all subsystems and enters the scheduler loop.
  */
-void kernel_main(void);
+void kernel_main(uint32_t mb_info_phys);
 
 #endif /* KERN_H */

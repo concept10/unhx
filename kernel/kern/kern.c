@@ -19,7 +19,11 @@
 #include "ipc/ipc_space.h"
 #include "ipc/ipc_mqueue.h"
 #include "vm/vm.h"
+#include "vm/vm_map.h"
 #include "klib.h"
+#include "multiboot.h"
+#include "elf_load.h"
+#include "platform/paging.h"
 
 #ifdef UNHOX_BOOT_TESTS
 #include "tests/ipc_test.h"
@@ -29,8 +33,8 @@
 /* Serial output (platform layer) */
 extern void serial_putstr(const char *s);
 
-/* Bootstrap server entry (Phase 1: kernel-internal) */
-extern void bootstrap_main(void);
+/* Bootstrap server (Phase 2: real Mach message loop as a kernel thread) */
+#include "bootstrap/bootstrap.h"
 
 void kern_init(void)
 {
@@ -140,7 +144,82 @@ void sched_test_thread_b(void)
         __asm__ volatile ("hlt");
 }
 
-void kernel_main(void)
+/* -------------------------------------------------------------------------
+ * Bootstrap IPC test thread — exercises the real Mach message-based API.
+ *
+ * Sends BOOTSTRAP_MSG_REGISTER then BOOTSTRAP_MSG_LOOKUP to the bootstrap
+ * server thread via ipc_mqueue_send(), blocks on a reply port, and verifies
+ * the returned port matches what was registered.
+ * ------------------------------------------------------------------------- */
+static void bootstrap_ipc_test(void)
+{
+    /* Spin until the bootstrap thread has set bootstrap_port */
+    while (!bootstrap_port)
+        for (volatile int i = 0; i < 50000; i++)
+            ;
+
+    struct task *ktask = kernel_task_ptr();
+
+    /* Allocate a fake "service" port to register */
+    struct ipc_port *svc_port = ipc_port_alloc(ktask);
+    if (!svc_port) {
+        serial_putstr("[bs-test] FAIL — could not allocate service port\r\n");
+        goto done;
+    }
+
+    /* ---- REGISTER ---- */
+    bootstrap_register_msg_t reg;
+    kmemset(&reg, 0, sizeof(reg));
+    reg.hdr.msgh_size = sizeof(reg);
+    reg.hdr.msgh_id   = BOOTSTRAP_MSG_REGISTER;
+    kstrncpy(reg.name, "com.unhox.test_svc", BOOTSTRAP_NAME_MAX);
+    reg.service_port  = (uint64_t)svc_port;
+
+    ipc_mqueue_send(bootstrap_port->ip_messages, &reg, sizeof(reg));
+
+    /* ---- LOOKUP ---- */
+    /* Both REGISTER and LOOKUP can be queued together — the FIFO queue
+     * guarantees REGISTER is dequeued and processed before LOOKUP. */
+    struct ipc_port *reply_port = ipc_port_alloc(ktask);
+    if (!reply_port) {
+        serial_putstr("[bs-test] FAIL — could not allocate reply port\r\n");
+        goto done;
+    }
+
+    bootstrap_lookup_msg_t lkup;
+    kmemset(&lkup, 0, sizeof(lkup));
+    lkup.hdr.msgh_size = sizeof(lkup);
+    lkup.hdr.msgh_id   = BOOTSTRAP_MSG_LOOKUP;
+    kstrncpy(lkup.name, "com.unhox.test_svc", BOOTSTRAP_NAME_MAX);
+    lkup.reply_port    = (uint64_t)reply_port;
+
+    ipc_mqueue_send(bootstrap_port->ip_messages, &lkup, sizeof(lkup));
+
+    /* Block on the reply */
+    uint8_t rbuf[sizeof(bootstrap_reply_msg_t)];
+    mach_msg_size_t out_size = 0;
+    mach_msg_return_t mr = ipc_mqueue_receive(
+        reply_port->ip_messages, rbuf, sizeof(rbuf), &out_size,
+        1 /* blocking */);
+
+    if (mr == MACH_MSG_SUCCESS) {
+        bootstrap_reply_msg_t *reply = (bootstrap_reply_msg_t *)rbuf;
+        if (reply->retcode == BOOTSTRAP_SUCCESS &&
+            reply->port_val == (uint64_t)svc_port) {
+            serial_putstr("[bs-test] PASS — bootstrap IPC register+lookup works\r\n");
+        } else {
+            serial_putstr("[bs-test] FAIL — reply mismatch\r\n");
+        }
+    } else {
+        serial_putstr("[bs-test] FAIL — receive error\r\n");
+    }
+
+done:
+    for (;;)
+        __asm__ volatile ("hlt");
+}
+
+void kernel_main(uint32_t mb_info_phys)
 {
     serial_putstr("\r\n");
     serial_putstr("================================================\r\n");
@@ -174,7 +253,6 @@ void kernel_main(void)
     kalloc_zones_init();
 
     serial_putstr("[UNHOX] initialising paging...\r\n");
-    extern void paging_init(uint64_t, uint32_t);
     paging_init(0, 0);
 
     serial_putstr("[UNHOX] initialising kernel core...\r\n");
@@ -190,10 +268,10 @@ void kernel_main(void)
     create_test_tasks();
 
     /*
-     * Bootstrap server (Phase 1: kernel-internal demo)
+     * Bootstrap server (Phase 2: blocking Mach message loop as kernel thread).
+     * We create the thread now; it will run once the scheduler starts and will
+     * block on ipc_mqueue_receive() waiting for register/lookup requests.
      */
-    serial_putstr("\r\n");
-    bootstrap_main();
 
 #ifdef UNHOX_BOOT_TESTS
     /*
@@ -233,6 +311,23 @@ void kernel_main(void)
             sched_set_current(boot_th);
 
         /*
+         * Bootstrap server thread — enqueued first so it initialises and
+         * sets bootstrap_port before the other test threads need it.
+         * It immediately blocks on ipc_mqueue_receive() once ready.
+         */
+        struct thread *th_bs = thread_create(ktask, bootstrap_main, 0);
+        if (th_bs)
+            sched_enqueue(th_bs);
+
+        /*
+         * Bootstrap IPC test thread — runs after bootstrap_main has had a
+         * chance to set bootstrap_port and enter its receive loop.
+         */
+        struct thread *th_bst = thread_create(ktask, bootstrap_ipc_test, 0);
+        if (th_bst)
+            sched_enqueue(th_bst);
+
+        /*
          * Blocking IPC test:
          * Thread "receiver" blocks on receive, thread "sender" sends after delay.
          */
@@ -255,6 +350,76 @@ void kernel_main(void)
             sched_enqueue(th_b);
 
         serial_putstr("[UNHOX] threads created, entering scheduler\r\n");
+    }
+
+    /*
+     * Launch the init userspace process (Phase 2 — milestone v0.4).
+     *
+     * QEMU passes init.elf as a Multiboot1 module via -initrd.
+     * We parse the module list, load the ELF into a new user task's
+     * address space, and create a ring-3 thread that enters via iretq.
+     */
+    serial_putstr("\r\n[UNHOX] loading userspace init...\r\n");
+    {
+        struct multiboot_info *mbinfo =
+            (struct multiboot_info *)(uint64_t)mb_info_phys;
+
+        if (mbinfo && (mbinfo->flags & MULTIBOOT_INFO_MODS) &&
+            mbinfo->mods_count > 0) {
+
+            struct multiboot_mod *mods =
+                (struct multiboot_mod *)(uint64_t)mbinfo->mods_addr;
+
+            const void *elf_data = (const void *)(uint64_t)mods[0].mod_start;
+            uint64_t    elf_size = mods[0].mod_end - mods[0].mod_start;
+
+            serial_putstr("[UNHOX] found init module, creating user task\r\n");
+
+            /* Create a new task and give it a per-task PML4 */
+            struct task *utask = task_create(kernel_task_ptr());
+            if (utask) {
+                uint64_t new_pml4 = paging_create_task_pml4();
+                if (new_pml4) {
+                    utask->t_cr3      = new_pml4;
+                    utask->t_map->pml4 = (uint64_t *)new_pml4;
+                }
+
+                /* Load ELF segments into the task's address space */
+                uint64_t entry = 0;
+                kern_return_t kr = elf_load(utask, elf_data, elf_size, &entry);
+                if (kr == KERN_SUCCESS) {
+                    serial_putstr("[UNHOX] ELF loaded, setting up user stack\r\n");
+
+                    /* Map a 64 KB user stack at 0x7FFF0000 */
+                    uint64_t ustack_base = 0x7FFF0000ULL;
+                    uint64_t ustack_size = 0x10000ULL;   /* 64 KB */
+                    vm_map_enter(utask->t_map, ustack_base, ustack_size,
+                                 VM_PROT_READ | VM_PROT_WRITE);
+
+                    /*
+                     * RSP at entry: top-of-stack minus 16 bytes so that
+                     * _start's `call main` leaves RSP 16-byte aligned at
+                     * main's function entry (System V AMD64 ABI).
+                     */
+                    uint64_t user_rsp = (ustack_base + ustack_size) - 16;
+
+                    struct thread *uth =
+                        thread_create_user(utask, entry, user_rsp);
+                    if (uth) {
+                        sched_enqueue(uth);
+                        serial_putstr("[UNHOX] init task queued — will run in ring 3\r\n");
+                    } else {
+                        serial_putstr("[UNHOX] WARN: thread_create_user failed\r\n");
+                    }
+                } else {
+                    serial_putstr("[UNHOX] WARN: elf_load failed\r\n");
+                }
+            } else {
+                serial_putstr("[UNHOX] WARN: task_create for init failed\r\n");
+            }
+        } else {
+            serial_putstr("[UNHOX] no Multiboot module found — skipping userspace\r\n");
+        }
     }
 
     /* Enable interrupts and enter the scheduler — never returns */
