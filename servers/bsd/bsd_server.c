@@ -134,26 +134,45 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
     if (!path || !frame)
         return -1;
 
+    serial_putstr("[bsd-exec] starting exec: ");
+    serial_putstr(path);
+    serial_putstr("\r\n");
+
     struct thread *cur_th = sched_current();
-    if (!cur_th || !cur_th->th_task)
+    if (!cur_th || !cur_th->th_task) {
+        serial_putstr("[bsd-exec] ERROR: no current thread/task\r\n");
         return -1;
+    }
 
     struct task *task = cur_th->th_task;
     uint8_t *image = (uint8_t *)kalloc(BSD_EXEC_MAX_IMAGE);
-    if (!image)
+    if (!image) {
+        serial_putstr("[bsd-exec] ERROR: image allocation failed\r\n");
         return -1;
+    }
 
+    serial_putstr("[bsd-exec] reading image from VFS\r\n");
     uint32_t image_size = 0;
-    if (bsd_vfs_read_all(path, image, BSD_EXEC_MAX_IMAGE, &image_size) != 0)
+    if (bsd_vfs_read_all(path, image, BSD_EXEC_MAX_IMAGE, &image_size) != 0) {
+        serial_putstr("[bsd-exec] ERROR: VFS read failed\r\n");
         return -1;
+    }
+
+    serial_putstr("[bsd-exec] image size: ");
+    /* TODO: print image_size */
+    serial_putstr("\r\n");
 
     uint64_t new_cr3 = paging_create_task_pml4();
-    if (!new_cr3)
+    if (!new_cr3) {
+        serial_putstr("[bsd-exec] ERROR: paging_create_task_pml4 failed\r\n");
         return -1;
+    }
 
     struct vm_map *new_map = vm_map_create(0, 0xFFFFFFFF80000000ULL);
-    if (!new_map)
+    if (!new_map) {
+        serial_putstr("[bsd-exec] ERROR: vm_map_create failed\r\n");
         return -1;
+    }
     new_map->pml4 = (uint64_t *)new_cr3;
 
     struct vm_map *old_map = task->t_map;
@@ -161,15 +180,19 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
     task->t_map = new_map;
     task->t_cr3 = new_cr3;
 
+    serial_putstr("[bsd-exec] loading ELF\r\n");
     uint64_t entry = 0;
     if (elf_load(task, image, image_size, &entry) != KERN_SUCCESS) {
+        serial_putstr("[bsd-exec] ERROR: elf_load failed\r\n");
         task->t_map = old_map;
         task->t_cr3 = old_cr3;
         return -1;
     }
 
+    serial_putstr("[bsd-exec] mapping user stack\r\n");
     if (vm_map_enter(task->t_map, BSD_USER_STACK_BASE, BSD_USER_STACK_SIZE,
                      VM_PROT_READ | VM_PROT_WRITE) != KERN_SUCCESS) {
+        serial_putstr("[bsd-exec] ERROR: vm_map_enter for stack failed\r\n");
         task->t_map = old_map;
         task->t_cr3 = old_cr3;
         return -1;
@@ -181,7 +204,10 @@ int bsd_exec_current(const char *path, struct interrupt_frame *frame)
     frame->rsp = user_rsp;
     frame->rax = 0;
 
+    serial_putstr("[bsd-exec] switching address space\r\n");
     __asm__ volatile ("movq %0, %%cr3" : : "r"(new_cr3) : "memory");
+
+    serial_putstr("[bsd-exec] exec complete\r\n");
 
     (void)old_map;
     (void)old_cr3;
@@ -207,6 +233,28 @@ void bsd_server_main(void)
     while (!bootstrap_port)
         for (volatile int i = 0; i < 10000; i++)
             ;
+
+    /* Look up the VFS server port */
+    bootstrap_lookup_msg_t lookup;
+    kmemset(&lookup, 0, sizeof(lookup));
+    lookup.hdr.msgh_size = sizeof(lookup);
+    lookup.hdr.msgh_id   = BOOTSTRAP_MSG_LOOKUP;
+    kstrncpy(lookup.name, "com.unhox.vfs", BOOTSTRAP_NAME_MAX);
+
+    struct ipc_port *vfs_reply = ipc_port_alloc(kernel_task_ptr());
+    lookup.reply_port = (uint64_t)vfs_reply;
+    ipc_mqueue_send(bootstrap_port->ip_messages, &lookup, sizeof(lookup));
+
+    bootstrap_reply_msg_t vfs_rep;
+    mach_msg_size_t vfs_rep_size = 0;
+    ipc_mqueue_receive(vfs_reply->ip_messages, &vfs_rep, sizeof(vfs_rep), &vfs_rep_size, 1);
+
+    if (vfs_rep.retcode == BOOTSTRAP_SUCCESS && vfs_rep.port_val != 0) {
+        vfs_port = (struct ipc_port *)vfs_rep.port_val;
+        serial_putstr("[bsd] VFS port resolved\r\n");
+    } else {
+        serial_putstr("[bsd] WARNING: could not resolve VFS port\r\n");
+    }
 
     /* Register as "com.unhox.bsd" */
     bootstrap_register_msg_t reg;
