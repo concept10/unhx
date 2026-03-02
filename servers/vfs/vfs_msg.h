@@ -27,6 +27,9 @@ struct ipc_port;
 #define VFS_MSG_CLOSE   202
 #define VFS_MSG_WRITE   203
 #define VFS_MSG_STAT    204
+#define VFS_MSG_READDIR 206
+#define VFS_MSG_MKDIR   207
+#define VFS_MSG_UNLINK  208
 #define VFS_MSG_REPLY   205
 
 /* Path and data size limits */
@@ -103,17 +106,55 @@ typedef struct {
 } vfs_stat_msg_t;
 
 /*
+ * vfs_readdir_msg_t — list directory contents.
+ * Server replies with vfs_reply_msg_t (data = directory entries).
+ */
+typedef struct {
+    mach_msg_header_t   hdr;
+    int32_t             fd;
+    int32_t             _pad;
+    uint64_t            reply_port;
+} vfs_readdir_msg_t;
+
+/*
+ * vfs_mkdir_msg_t — create a directory.
+ * Server replies with vfs_reply_msg_t (result = fd of new dir or error).
+ */
+typedef struct {
+    mach_msg_header_t   hdr;
+    int32_t             _pad;
+    uint32_t            mode;
+    uint8_t             path[VFS_PATH_MAX];
+    uint64_t            reply_port;
+} vfs_mkdir_msg_t;
+
+/*
+ * vfs_unlink_msg_t — delete a file or directory.
+ * Server replies with vfs_reply_msg_t (retcode = success or error).
+ */
+typedef struct {
+    mach_msg_header_t   hdr;
+    int32_t             _pad1;
+    int32_t             _pad2;
+    uint8_t             path[VFS_PATH_MAX];
+    uint64_t            reply_port;
+} vfs_unlink_msg_t;
+
+/*
  * vfs_reply_msg_t — reply from VFS server to client.
  *
- * For VFS_MSG_OPEN:  retcode, result = fd (>= 0), data unused.
- * For VFS_MSG_READ:  retcode, result = bytes read, data = file content.
- * For VFS_MSG_WRITE: retcode, result = bytes written.
- * For VFS_MSG_STAT:  retcode, result = file size.
+ * For VFS_MSG_OPEN:    retcode, result = fd (>= 0), data unused.
+ * For VFS_MSG_READ:    retcode, result = bytes read, data = file content.
+ * For VFS_MSG_WRITE:   retcode, result = bytes written.
+ * For VFS_MSG_STAT:    retcode, result = file size.
+ * For VFS_MSG_READDIR: retcode, result = entry count, data = dir entries.
+ * For VFS_MSG_MKDIR:   retcode, result = fd or error.
+ * For VFS_MSG_UNLINK:  retcode, result = 0 or error.
  */
 typedef struct {
     mach_msg_header_t   hdr;
     int32_t             retcode;        /* VFS_SUCCESS or error code */
-    int32_t             result;         /* fd, byte count, or size */
+    int32_t             result;         /* fd, byte count, size, or status */
     uint8_t             data[VFS_DATA_MAX];
 } vfs_reply_msg_t;
 

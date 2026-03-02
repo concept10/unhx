@@ -182,6 +182,72 @@ void vfs_server_main(void)
             break;
         }
 
+        case VFS_MSG_READDIR: {
+            if (msg_size < sizeof(vfs_readdir_msg_t))
+                break;
+            vfs_readdir_msg_t *req = (vfs_readdir_msg_t *)buf;
+
+            uint32_t count = 0;
+            int ret = ramfs_readdir(req->fd, NULL, 0, &count);
+
+            if (req->reply_port) {
+                vfs_reply_msg_t reply;
+                kmemset(&reply, 0, sizeof(reply));
+                reply.hdr.msgh_size = sizeof(reply);
+                reply.hdr.msgh_id   = VFS_MSG_REPLY;
+                reply.retcode       = (ret >= 0) ? VFS_SUCCESS : VFS_BAD_FD;
+                reply.result        = count;
+
+                struct ipc_port *rp = (struct ipc_port *)req->reply_port;
+                ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+            }
+            break;
+        }
+
+        case VFS_MSG_MKDIR: {
+            if (msg_size < sizeof(vfs_mkdir_msg_t))
+                break;
+            vfs_mkdir_msg_t *req = (vfs_mkdir_msg_t *)buf;
+            req->path[VFS_PATH_MAX - 1] = '\0';
+
+            int fd = ramfs_mkdir((const char *)req->path, req->mode);
+
+            if (req->reply_port) {
+                vfs_reply_msg_t reply;
+                kmemset(&reply, 0, sizeof(reply));
+                reply.hdr.msgh_size = sizeof(reply);
+                reply.hdr.msgh_id   = VFS_MSG_REPLY;
+                reply.retcode       = (fd >= 0) ? VFS_SUCCESS : VFS_NOT_FOUND;
+                reply.result        = fd;
+
+                struct ipc_port *rp = (struct ipc_port *)req->reply_port;
+                ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+            }
+            break;
+        }
+
+        case VFS_MSG_UNLINK: {
+            if (msg_size < sizeof(vfs_unlink_msg_t))
+                break;
+            vfs_unlink_msg_t *req = (vfs_unlink_msg_t *)buf;
+            req->path[VFS_PATH_MAX - 1] = '\0';
+
+            int ret = ramfs_unlink((const char *)req->path);
+
+            if (req->reply_port) {
+                vfs_reply_msg_t reply;
+                kmemset(&reply, 0, sizeof(reply));
+                reply.hdr.msgh_size = sizeof(reply);
+                reply.hdr.msgh_id   = VFS_MSG_REPLY;
+                reply.retcode       = (ret >= 0) ? VFS_SUCCESS : VFS_NOT_FOUND;
+                reply.result        = 0;
+
+                struct ipc_port *rp = (struct ipc_port *)req->reply_port;
+                ipc_mqueue_send(rp->ip_messages, &reply, sizeof(reply));
+            }
+            break;
+        }
+
         default:
             serial_putstr("[vfs] unknown message\r\n");
             break;

@@ -112,6 +112,34 @@ int ramfs_stat(int fd, uint32_t *size_out)
     return 0;
 }
 
+int ramfs_readdir(int fd, void *buf, uint32_t bufsize, uint32_t *count_out)
+{
+    /* Phase 2 stub: ramfs is flat (no directories), return 0 entries */
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    if (count_out)
+        *count_out = 0;
+    (void)buf;
+    (void)bufsize;
+    return 0;
+}
+
+int ramfs_mkdir(const char *path, uint32_t mode)
+{
+    /* Phase 2 stub: ramfs does not support directory creation */
+    (void)path;
+    (void)mode;
+    return -1;
+}
+
+int ramfs_unlink(const char *path)
+{
+    /* Phase 2 stub: ramfs is read-only, cannot delete files */
+    (void)path;
+    return -1;
+}
+
 int ramfs_size(int fd)
 {
     if (fd < 0 || fd >= nfiles || !files[fd].active)
