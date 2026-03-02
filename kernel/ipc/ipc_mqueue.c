@@ -142,12 +142,23 @@ retry:
 
     /*
      * Block the current thread on this queue's wait list.
-     * We add ourselves to the tail, unlock the mqueue (so senders can
-     * enqueue and wake us), then call sched_sleep() which sets our state
-     * to WAITING and yields the CPU.
      *
-     * On wakeup (triggered by ipc_mqueue_send), we loop back to retry
-     * the dequeue.
+     * ORDERING IS CRITICAL:
+     *   1. Add ourselves to the wait list  }  IRQs still disabled
+     *   2. Set state = WAITING             }  (mqueue lock held)
+     *   3. Release the mqueue lock (re-enables IRQs)
+     *   4. sched_yield_if_waiting()
+     *
+     * Setting state=WAITING BEFORE step 3 closes a race with
+     * ipc_mqueue_send: if a sender acquires the mqueue lock immediately
+     * after step 3, it will find us in the wait list, remove us, and
+     * call sched_wakeup().  sched_wakeup() checks th_state==WAITING
+     * before enqueuing — so it must see WAITING, not RUNNABLE.
+     *
+     * sched_yield_if_waiting() checks whether we are still WAITING when
+     * it runs.  If sched_wakeup() already changed our state to RUNNABLE
+     * (between steps 3 and 4), it returns immediately so we retry the
+     * dequeue rather than sleeping unnecessarily.
      */
     struct thread *cur = sched_current();
     cur->th_wait_next = (void *)0;
@@ -158,9 +169,11 @@ retry:
     }
     mq->imq_wait_tail = cur;
 
-    mqueue_unlock(mq, flags);
+    cur->th_state = THREAD_STATE_WAITING;   /* set under lock, before unlock */
 
-    sched_sleep();
+    mqueue_unlock(mq, flags);              /* re-enables IRQs */
+
+    sched_yield_if_waiting();              /* yield only if still WAITING */
 
     goto retry;
 }

@@ -144,6 +144,90 @@ struct task *kernel_task_ptr(void)
  * kernel_task_create — internal: create the special kernel task (task 0).
  * Called by kern_init().
  */
+/*
+ * task_copy — copy a task for fork().
+ *
+ * Creates a new task that is a copy of the parent task:
+ * - Allocates a new task struct
+ * - Creates a per-task PML4 (separate address space)
+ * - Copies all vm_map entries from parent to child
+ * - Allocates physical pages for each entry
+ * - Creates a new ipc_space for the child (isolated from parent)
+ *
+ * The child task is created in RUNNING state but no thread is created;
+ * the BSD server's fork handler will create the initial thread.
+ *
+ * Returns a pointer to the new child task, or NULL on failure.
+ */
+struct task *task_copy(struct task *parent)
+{
+    if (!parent || !parent->active)
+        return (void *)0;
+
+    /* Allocate a new task slot */
+    struct task *child = task_pool_alloc();
+    if (!child)
+        return (void *)0;
+
+    child->task_id        = next_task_id++;
+    child->state          = TASK_STATE_RUNNING;
+    child->is_kernel_task = 0;
+    child->t_threads      = (void *)0;
+    child->t_thread_count = 0;
+    child->t_ref_count    = 1;
+
+    /* Create a new IPC space for the child (isolated from parent) */
+    child->t_ipc_space = ipc_space_create(child);
+    if (!child->t_ipc_space) {
+        child->active = 0;
+        return (void *)0;
+    }
+
+    /* Create a new per-task PML4 for the child's address space */
+    child->t_cr3 = paging_create_task_pml4();
+    if (child->t_cr3 == 0) {
+        ipc_space_destroy(child->t_ipc_space);
+        child->active = 0;
+        return (void *)0;
+    }
+
+    /* Create a new vm_map for the child */
+    child->t_map = vm_map_create(0, 0xFFFFFFFF80000000ULL);
+    if (!child->t_map) {
+        ipc_space_destroy(child->t_ipc_space);
+        paging_destroy_task_pml4(child->t_cr3);
+        child->active = 0;
+        return (void *)0;
+    }
+
+    /* Link the vm_map to the child's page tables */
+    child->t_map->pml4 = (uint64_t *)child->t_cr3;
+
+    /* Copy each vm_map entry from parent to child */
+    for (uint32_t i = 0; i < parent->t_map->entry_count; i++) {
+        struct vm_map_entry *parent_entry = &parent->t_map->entries[i];
+
+        if (!parent_entry->vme_in_use)
+            continue;
+
+        /* Enter the same range in the child's vm_map */
+        kern_return_t kr = vm_map_enter(
+            child->t_map,
+            parent_entry->vme_start,
+            parent_entry->vme_end - parent_entry->vme_start,
+            parent_entry->vme_protection
+        );
+
+        if (kr != KERN_SUCCESS) {
+            /* Cleanup on failure */
+            task_destroy(child);
+            return (void *)0;
+        }
+    }
+
+    return child;
+}
+
 void kernel_task_create(void)
 {
     the_kernel_task = task_create((void *)0);

@@ -96,6 +96,18 @@ struct task {
  * ------------------------------------------------------------------------- */
 
 /*
+ * task_copy — duplicate a task for fork().
+ *
+ * Creates a new task with a separate address space that is a copy of
+ * the parent's vm_map entries.  The new task has its own IPC space,
+ * isolated from the parent.  No threads are created; the BSD server's
+ * fork handler will create the initial thread.
+ *
+ * Returns a pointer to the new child task, or NULL on failure.
+ */
+struct task *task_copy(struct task *parent);
+
+/*
  * task_create — create a new task.
  *
  * parent: the parent task (may be NULL for the kernel task).

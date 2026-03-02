@@ -22,6 +22,9 @@
 #define SYS_WRITE       1
 #define SYS_EXIT        2
 #define SYS_READ        3
+#define SYS_FORK        4
+#define SYS_EXEC        5
+#define SYS_WAIT        6
 
 struct interrupt_frame;
 

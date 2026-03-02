@@ -1,33 +1,33 @@
 # tests/
 
-Kernel test harness and QEMU-based integration tests.
+Kernel test assets for UNHOX, primarily QEMU-based integration coverage.
 
 ## Test Categories
 
-| Directory | Contents |
-|-----------|----------|
-| `unit/` | Unit tests for kernel subsystems (run on host via mocking) |
-| `integration/` | Full system tests running under QEMU |
-| `ipc/` | IPC correctness and performance tests |
-| `vm/` | Virtual memory tests |
-| `scripts/` | QEMU automation scripts |
+| Path | Contents |
+|------|----------|
+| `tests/integration/boot/` | Boot smoke test script (`boot_test.sh`) |
+| `kernel/tests/` | In-kernel milestone tests (`ipc_test.c`, `ipc_perf.c`) compiled when `UNHOX_BOOT_TESTS=ON` |
 
 ## Running Tests
 
 ```sh
-# Unit tests (no QEMU required)
-make -C tests/unit
+# Configure and build with boot tests enabled
+cmake -S . -B build_status \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
+  -DUNHOX_BOOT_TESTS=ON
+cmake --build build_status --target unhx.elf init.elf
 
-# Integration tests (requires QEMU)
-./tests/scripts/run-all.sh
+# Integration boot smoke test
+./tests/integration/boot/boot_test.sh
 ```
 
 ## Phase 1 Test Plan
 
-- [ ] Boot kernel under QEMU and verify serial output
-- [ ] Create two tasks and verify they run
-- [ ] Pass a Mach message between two tasks and verify receipt
-- [ ] Verify IPC port right lifecycle (create, transfer, destroy)
+- [x] Boot kernel under QEMU and verify serial output
+- [x] Create two tasks and verify they run
+- [x] Pass a Mach message between two tasks and verify receipt
+- [x] Verify IPC port right lifecycle (create, transfer, destroy)
 - [ ] Verify VM map create/destroy
 
 ## IPC Performance Benchmark (Phase 1+)
