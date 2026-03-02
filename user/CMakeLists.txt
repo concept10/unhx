@@ -29,6 +29,7 @@ set(USER_ASM_FLAGS
 add_executable(init.elf
     libc/start.S
     init/init.c
+    sh/sh.c
 )
 
 target_compile_options(init.elf PRIVATE
