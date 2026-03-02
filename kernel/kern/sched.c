@@ -22,6 +22,7 @@
 
 /* Serial output (platform layer) */
 extern void serial_putstr(const char *s);
+extern void serial_puthex(uint64_t val);
 
 /* The run queue: a singly-linked list of runnable threads */
 static struct thread *run_queue_head = (void *)0;
@@ -199,6 +200,7 @@ void sched_wakeup(struct thread *th)
         return;
 
     uint64_t flags = irq_save();
+
     if (th->th_state == THREAD_STATE_WAITING) {
         th->th_state = THREAD_STATE_RUNNABLE;
         sched_enqueue(th);
