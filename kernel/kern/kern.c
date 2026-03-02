@@ -241,14 +241,6 @@ done:
     for (;;)
         __asm__ volatile ("hlt");
 }
-
-/* -------------------------------------------------------------------------
- * VFS test thread — exercises the VFS server via Mach IPC.
- *
- * Opens "/test.txt" on the VFS server, reads its content, and verifies the
- * reply. Uses the same non-blocking poll idiom as bootstrap_ipc_test().
- * ------------------------------------------------------------------------- */
-
 static void vfs_test_thread(void)
 {
     /* Spin until the VFS server has set vfs_port */
@@ -568,6 +560,14 @@ void kernel_main(uint32_t mb_info_phys)
             sched_enqueue(th_a);
 
         /* Thread B: prints "B" periodically */
+
+                /*
+                 * Release userspace init only after boot test messages complete.
+                 * This keeps the first shell prompt clean and interactive.
+                 */
+                struct thread *th_init_release = thread_create(ktask, init_release_thread, 0);
+                if (th_init_release)
+                    sched_enqueue(th_init_release);
         struct thread *th_b = thread_create(ktask, sched_test_thread_b, 0);
         if (th_b)
             sched_enqueue(th_b);

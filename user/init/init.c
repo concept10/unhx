@@ -37,8 +37,11 @@ int main(void)
     const char *exec_hint = "[init] info: run /bin/init.elf in shell to verify exec\r\n";
     write(1, exec_hint, my_strlen(exec_hint));
 
-    /* Give servers time to fully initialize (wait for BSD to look up VFS) */
-    for (volatile unsigned long i = 0; i < 100000000UL; i++)
+    /*
+     * Hold shell startup briefly so bootstrap/VFS test logs finish first.
+     * This avoids prompt/input being interleaved with late boot messages.
+     */
+    for (volatile unsigned long i = 0; i < 250000000UL; i++)
         ;
 
     /* v0.5: enter the interactive shell (never returns) */
