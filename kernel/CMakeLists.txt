@@ -46,7 +46,6 @@ set(KERNEL_C_FLAGS
     -mno-mmx
     -mno-sse
     -mno-sse2
-    -mcmodel=kernel
     -Wall
     -Wextra
     -Wno-unused-function
