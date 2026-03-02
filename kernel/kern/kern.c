@@ -63,7 +63,6 @@ static void init_release_thread(void)
 
     if (pending_init_thread) {
         sched_enqueue(pending_init_thread);
-        serial_putstr("[UNHOX] init task queued — will run in ring 3\r\n");
     } else {
         serial_putstr("[UNHOX] WARN: init release gate opened without thread\r\n");
     }
@@ -668,7 +667,6 @@ void kernel_main(uint32_t mb_info_phys)
                     if (uth) {
                         pending_init_thread = uth;
                         init_thread_staged = 1;
-                        serial_putstr("[UNHOX] init task staged — waiting for VFS test completion\r\n");
                     } else {
                         serial_putstr("[UNHOX] WARN: thread_create_user failed\r\n");
                     }
