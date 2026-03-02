@@ -10,7 +10,7 @@
  *   2. _start — entry point; entered in 32-bit protected mode
  *   3. Zero BSS (must happen before page tables are set up, since the
  *      boot page tables live in BSS)
- *   4. Set up identity-mapped page tables covering the first 2 MB
+ *   4. Set up identity-mapped page tables covering the first 4 MB
  *   5. Enable PAE, load CR3, enable long mode (EFER.LME), enable paging
  *   6. Far jump into 64-bit code segment (long_mode_entry)
  *   7. Load segment registers and set up a 16 KB stack
@@ -116,14 +116,15 @@ _start:
 
     /* ----------------------------------------------------------------
      * Build minimal identity-mapped page tables (physical == virtual
-     * for the first 2 MB) so that paging can be enabled while the CPU
-     * is still executing from physical addresses in the low 2 MB.
+     * for the first 4 MB) so that paging can be enabled while the CPU
+     * is still executing from physical addresses.
      *
-     * We use one 2 MB huge page (PS bit) to keep it simple.
+     * We use two 2 MB huge pages (PS bit) to keep it simple.
      *
      * PML4[0] → boot_pdpt | PRESENT | WRITE
      * PDPT[0] → boot_pd   | PRESENT | WRITE
      * PD[0]   → 0x000000  | PRESENT | WRITE | HUGE (2 MB page, PS=1)
+     * PD[1]   → 0x200000  | PRESENT | WRITE | HUGE (2 MB page, PS=1)
      * ---------------------------------------------------------------- */
     movl    $boot_pdpt, %eax
     orl     $0x03, %eax             /* present + writable                    */
@@ -134,7 +135,10 @@ _start:
     movl    %eax, boot_pdpt         /* PDPT[0]                               */
 
     movl    $0x83, %eax             /* 0x000000 | present | write | huge(PS) */
-    movl    %eax, boot_pd           /* PD[0] → first 2 MB                   */
+    movl    %eax, boot_pd           /* PD[0] → first 2 MB (0x000000–0x1FFFFF) */
+
+    movl    $0x200083, %eax         /* 0x200000 | present | write | huge(PS) */
+    movl    %eax, boot_pd + 8       /* PD[1] → next 2 MB (0x200000–0x3FFFFF)  */
 
     /* ----------------------------------------------------------------
      * Enable Physical Address Extension (required for 64-bit paging):

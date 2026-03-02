@@ -83,4 +83,11 @@ struct thread *sched_current(void);
  */
 void sched_set_current(struct thread *th);
 
+/*
+ * sched_run — enable interrupts and enter the idle loop.
+ * Called at the end of kernel_main() after all threads are created.
+ * This function never returns.
+ */
+void sched_run(void);
+
 #endif /* SCHED_H */
