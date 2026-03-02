@@ -39,4 +39,13 @@ int ramfs_write(int fd, const void *buf, uint32_t count);
 /* Retrieve file size for fd. Returns 0 on success, -1 on bad fd. */
 int ramfs_stat(int fd, uint32_t *size_out);
 
+/* List directory contents. Returns 0 on success, -1 on error. Phase 2: stub. */
+int ramfs_readdir(int fd, void *buf, uint32_t bufsize, uint32_t *count_out);
+
+/* Create a directory. Returns fd on success, -1 on error. Phase 2: stub. */
+int ramfs_mkdir(const char *path, uint32_t mode);
+
+/* Delete a file or directory. Returns 0 on success, -1 on error. Phase 2: stub. */
+int ramfs_unlink(const char *path);
+
 #endif /* RAMFS_H */
