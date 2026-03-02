@@ -72,8 +72,8 @@ Check off items as they are completed.
 - [x] Write `kernel/platform/platform.c` — 16550 serial console driver (COM1)
 - [x] Verify: kernel boots under QEMU and prints "UNHOX" via serial
 - [x] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test
-- [x] CI: `.github/workflows/boot-test.yml` — automated boot & IPC verification
-- [ ] Write `kernel/platform/idt.c` — Interrupt Descriptor Table *(deferred to Phase 2 — requires PIC init, IRQ routing)*
+- [x] CI: `.github/workflows/boot-test.yml` — automated boot and IPC verification
+- [x] Write `kernel/platform/idt.c` — Interrupt Descriptor Table
 
 ### Physical Memory ✅
 - [x] Write `kernel/vm/vm_page.c` — physical page frame allocator (free-list, 512 pages)
@@ -99,7 +99,7 @@ Check off items as they are completed.
 ### IPC ✅
 - [x] Write `kernel/ipc/ipc.c` — port creation/lifecycle + per-task port name space (consolidated `ipc_port` + `ipc_space`)
 - [x] Write `kernel/ipc/ipc_entry.h` — port right management (right bits, capability checks)
-- [x] Write `kernel/ipc/ipc_mqueue.c` — message queue (non-blocking; blocking deferred to Phase 2)
+- [x] Write `kernel/ipc/ipc_mqueue.c` — message queue (non-blocking and blocking receive paths)
 - [x] Write `kernel/ipc/ipc_kmsg.c` — `mach_msg_send()` / `mach_msg_receive()` implementation
 - [x] Write `kernel/tests/ipc_test.c` — 13-assertion milestone test (task creation, port alloc, send/receive, capability enforcement)
 - [x] Verify milestone v0.2: two tasks pass a Mach message — **13/13 PASS**
@@ -121,23 +121,24 @@ Check off items as they are completed.
 ## Phase 2 — System Servers
 
 ### BSD Server
-- [ ] Design BSD server IPC protocol (MIG or hand-written)
+- [x] Design BSD server IPC protocol (hand-written in `servers/bsd/bsd_msg.h`)
 - [ ] Implement `fork()` — clone task + address space
 - [ ] Implement `exec()` — load ELF binary into new address space
 - [ ] Implement `exit()` / `wait()` — process lifecycle
 - [ ] Implement signal delivery across task boundary
-- [ ] Implement file descriptor table (backed by VFS server)
+- [x] Implement minimal fd table semantics (serial-backed fd 0/1/2)
 - [ ] Verify milestone v0.4: fork + exec + basic syscalls work
 
 ### VFS Server (ramfs)
-- [ ] Implement ramfs — in-memory directory tree
-- [ ] Implement `open()`, `read()`, `write()`, `close()`, `stat()`
+- [x] Implement ramfs — in-memory directory tree
+- [x] Implement `open()`, `read()`, `close()`
+- [ ] Implement `write()`, `stat()`
 - [ ] Implement `readdir()`, `mkdir()`, `unlink()`
 - [ ] Verify: BSD server can open and read `/bin/sh` from ramfs
 
 ### Shell
 - [ ] Port `dash` (Debian Almquist Shell) to UNHOX
-- [ ] Verify milestone v0.5: shell prompt appears
+- [x] Verify milestone v0.5: shell prompt appears
 
 ---
 
@@ -192,7 +193,7 @@ Check off items as they are completed.
 ## Ongoing / Cross-Cutting
 
 ### Testing Infrastructure
-- [ ] Set up CI: build kernel on push, run QEMU smoke test
+- [x] Set up CI: build kernel on push, run QEMU smoke test
 - [ ] Kernel sanitizers: KASAN (address), KUBSAN (undefined behavior)
 - [ ] Fuzz testing for IPC message parsing
 

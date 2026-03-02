@@ -206,6 +206,45 @@ void sched_wakeup(struct thread *th)
     irq_restore(flags);
 }
 
+void sched_yield_if_waiting(void)
+{
+    uint64_t flags = irq_save();
+
+    /*
+     * If sched_wakeup() already ran (between mqueue_unlock and here),
+     * our state is no longer WAITING.  Return immediately so the caller
+     * can retry the dequeue — the message is waiting for us.
+     */
+    if (!current_thread ||
+        current_thread->th_state != THREAD_STATE_WAITING) {
+        irq_restore(flags);
+        return;
+    }
+
+    struct thread *next = sched_dequeue();
+    if (!next) {
+        /*
+         * No other runnable thread.  Spin with interrupts enabled until
+         * sched_wakeup() changes our state.  The timer ISR may preempt
+         * us here and switch to a newly-runnable thread via sched_yield();
+         * when we are eventually rescheduled, the while-condition is
+         * re-evaluated.
+         */
+        irq_restore(flags);
+        while (current_thread->th_state == THREAD_STATE_WAITING)
+            __asm__ volatile ("hlt");
+        return;
+    }
+
+    /* Switch to the next runnable thread.  Do NOT re-enqueue ourselves —
+     * we are WAITING.  sched_wakeup() will enqueue us when a message
+     * arrives, and the scheduler will eventually resume us here. */
+    struct thread *prev = current_thread;
+    current_thread = next;
+    irq_restore(flags);
+    thread_switch(prev, next);
+}
+
 void sched_run(void)
 {
     serial_putstr("[UNHOX] enabling interrupts, entering scheduler\r\n");
