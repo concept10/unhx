@@ -91,26 +91,37 @@ struct thread *thread_create(struct task *task,
     th->th_stack_top  = (uint64_t)stack + stack_size;
 
     /*
-     * Set up the initial CPU state so that when the scheduler first
-     * switches to this thread, it begins executing at the trampoline.
+     * Build the initial stack frame so that the first context switch
+     * (via context_switch_asm) correctly "returns" to the trampoline.
      *
-     * We store the real entry_point in R12 (callee-saved) so the
-     * trampoline can retrieve it after the context switch.
+     * context_switch_asm restores by popping 6 callee-saved registers
+     * (r15, r14, r13, r12, rbp, rbx) then `ret`.  We pre-build this
+     * exact stack layout:
      *
-     * The stack must be 16-byte aligned per the System V AMD64 ABI.
-     * We subtract 8 to account for the "return address" that would
-     * normally be pushed by a CALL instruction — the context switch
-     * uses RET to jump to th_cpu_state.rip, which simulates a call.
+     *   [padding]                    ← 16-byte alignment padding
+     *   [thread_entry_trampoline]    ← return address (popped by ret)
+     *   [rbx = 0]
+     *   [rbp = 0]
+     *   [r12 = entry_point]          ← trampoline reads this
+     *   [r13 = 0]
+     *   [r14 = 0]
+     *   [r15 = 0]                    ← RSP points here
+     *
+     * After the 6 pops + ret, RSP = &padding, which is 16-aligned - 8,
+     * satisfying the System V AMD64 ABI function-entry alignment rule.
      */
-    th->th_cpu_state.rsp = th->th_stack_top & ~0xFULL;  /* align to 16 */
-    th->th_cpu_state.rsp -= 8;  /* simulate call alignment */
-    th->th_cpu_state.rip = (uint64_t)thread_entry_trampoline;
-    th->th_cpu_state.rbp = 0;
-    th->th_cpu_state.rbx = 0;
-    th->th_cpu_state.r12 = (uint64_t)entry_point;
-    th->th_cpu_state.r13 = 0;
-    th->th_cpu_state.r14 = 0;
-    th->th_cpu_state.r15 = 0;
+    uint64_t sp = th->th_stack_top & ~0xFULL;    /* align to 16 */
+
+    sp -= 8; *(uint64_t *)sp = 0;                /* alignment padding */
+    sp -= 8; *(uint64_t *)sp = (uint64_t)thread_entry_trampoline;  /* ret addr */
+    sp -= 8; *(uint64_t *)sp = 0;                /* rbx */
+    sp -= 8; *(uint64_t *)sp = 0;                /* rbp */
+    sp -= 8; *(uint64_t *)sp = (uint64_t)entry_point;  /* r12 */
+    sp -= 8; *(uint64_t *)sp = 0;                /* r13 */
+    sp -= 8; *(uint64_t *)sp = 0;                /* r14 */
+    sp -= 8; *(uint64_t *)sp = 0;                /* r15 */
+
+    th->th_cpu_state.rsp = sp;
 
     /* Scheduler defaults */
     th->th_priority = 10;       /* default mid-range priority */
