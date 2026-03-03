@@ -69,9 +69,13 @@ set(KERNEL_SOURCES
     # Platform layer (boot and hardware abstraction)
     platform/boot.S
     platform/context_switch.S
+    platform/isr.S
     platform/gdt.c
     platform/platform.c
     platform/paging.c
+    platform/idt.c
+    platform/pic.c
+    platform/irq.c
 
     # IPC subsystem
     ipc/ipc.c
@@ -81,24 +85,47 @@ set(KERNEL_SOURCES
     # VM subsystem
     vm/vm.c
     vm/vm_page.c
+    vm/vm_map.c
+    vm/vm_object.c
+    vm/vm_fault.c
 
     # Kernel core
     kern/kalloc.c
+    kern/zalloc.c
     kern/klib.c
     kern/kern.c
     kern/task.c
     kern/thread.c
     kern/sched.c
     kern/kernel_task.c
+    kern/elf_load.c
+    kern/syscall.c
 
-    # Bootstrap server (Phase 1: linked into kernel)
+    # Bootstrap server (Phase 2: blocking Mach message loop)
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/registry.c
+
+    # VFS server + ramfs (Phase 2)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/vfs/vfs_server.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/vfs/ramfs.c
+
+    # BSD server (Phase 2)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/bsd_server.c
+
+    # Device layer (Phase 3: PCI, Virtio)
+    device/pci.c
+    device/virtio_blk.c
+    device/virtio_net.c
+    device/framebuffer.c
+    device/vga_text.c
+    device/keyboard.c
+    device/ahci.c
 )
 
 if(UNHOX_BOOT_TESTS)
     list(APPEND KERNEL_SOURCES
         tests/ipc_test.c
+        tests/ipc_perf.c
     )
     add_compile_definitions(UNHOX_BOOT_TESTS=1)
 endif()

@@ -16,6 +16,7 @@
 #define THREAD_H
 
 #include "mach/mach_types.h"
+#include "platform/idt.h"
 #include <stdint.h>
 
 /* Forward declarations */
@@ -93,6 +94,9 @@ struct thread {
 
     /* Linked list for scheduler run queue */
     struct thread      *th_sched_next;
+
+    /* Linked list for IPC wait queues (blocking receive) */
+    struct thread      *th_wait_next;
 };
 
 /* -------------------------------------------------------------------------
@@ -128,6 +132,20 @@ void thread_destroy(struct thread *th);
 void thread_switch(struct thread *from, struct thread *to);
 
 /*
+ * thread_create_user — create a ring-3 user thread.
+ *
+ * task:        the owning task (must have a per-task PML4 and user stack mapped)
+ * user_entry:  ring-3 entry point virtual address (from ELF e_entry)
+ * user_rsp:    ring-3 initial stack pointer
+ *
+ * A kernel stack is allocated for syscall/interrupt handling.  When first
+ * scheduled, the thread enters ring 3 via iretq (user_entry_trampoline).
+ */
+struct thread *thread_create_user(struct task *task,
+                                  uint64_t user_entry,
+                                  uint64_t user_rsp);
+
+/*
  * context_switch_asm — low-level assembly context switch.
  * Saves callee-saved registers of 'from' and restores 'to'.
  * Called by thread_switch().
@@ -137,5 +155,31 @@ void thread_switch(struct thread *from, struct thread *to);
  *   RSI = pointer to to->th_cpu_state
  */
 extern void context_switch_asm(struct cpu_state *from, struct cpu_state *to);
+
+/* Assembly trampoline that enters ring 3 via iretq (context_switch.S). */
+extern void user_entry_trampoline(void);
+
+/* Assembly routine for returning to user space from a forked child. */
+extern void fork_child_return(void);
+
+/*
+ * thread_create_fork_child — create a user thread for a fork() child process.
+ *
+ * Specifically for handling fork(): creates a user thread that will return
+ * to the same syscall instruction point as the parent, but with RAX=0
+ * (child process return value).
+ *
+ * task:         the child task (created by task_copy from parent)
+ * parent_frame: the parent's interrupt frame at the fork() syscall
+ *
+ * The child thread's stack is set up so that when scheduled, it will:
+ *   1. context_switch_asm will `ret` to fork_child_return
+ *   2. fork_child_return will `iretq` with the modified interrupt frame
+ *   3. Execution resumes in user space with RAX=0
+ *
+ * Returns pointer to the new thread, or NULL on failure.
+ */
+struct thread *thread_create_fork_child(struct task *task,
+                                        struct interrupt_frame *parent_frame);
 
 #endif /* THREAD_H */

@@ -1,0 +1,169 @@
+/*
+ * servers/vfs/ramfs.c — In-memory filesystem for UNHOX
+ *
+ * Pre-populated with a small set of static files. Used by the VFS server
+ * to serve VFS_MSG_OPEN / VFS_MSG_READ requests.
+ */
+
+#include "vfs/ramfs.h"
+#include "kern/klib.h"
+#include "kern/kern.h"
+
+struct ramfs_file {
+    char     name[RAMFS_PATH_MAX];
+    const uint8_t *data;
+    uint8_t  inline_data[RAMFS_DATA_MAX];
+    uint32_t size;
+    int      active;
+};
+
+static struct ramfs_file files[RAMFS_MAX_FILES];
+static int nfiles = 0;
+
+/* -------------------------------------------------------------------------
+ * Internal helper — add a file to the store
+ * ------------------------------------------------------------------------- */
+
+static void ramfs_add(const char *name, const char *content, uint32_t size)
+{
+    if (nfiles >= RAMFS_MAX_FILES)
+        return;
+
+    struct ramfs_file *f = &files[nfiles];
+    kstrncpy(f->name, name, RAMFS_PATH_MAX);
+
+    if (size > RAMFS_DATA_MAX)
+        size = RAMFS_DATA_MAX;
+    kmemcpy(f->inline_data, content, size);
+    f->data   = f->inline_data;
+    f->size   = size;
+    f->active = 1;
+    nfiles++;
+}
+
+static void ramfs_add_blob(const char *name, const uint8_t *blob, uint32_t size)
+{
+    if (!name || !blob || size == 0 || nfiles >= RAMFS_MAX_FILES)
+        return;
+
+    struct ramfs_file *f = &files[nfiles];
+    kstrncpy(f->name, name, RAMFS_PATH_MAX);
+    f->data   = blob;
+    f->size   = size;
+    f->active = 1;
+    nfiles++;
+}
+
+/* -------------------------------------------------------------------------
+ * Public API
+ * ------------------------------------------------------------------------- */
+
+void ramfs_init(void)
+{
+    kmemset(files, 0, sizeof(files));
+    nfiles = 0;
+
+    ramfs_add("/test.txt",
+              "Hello from ramfs!\n",
+              18);
+
+    ramfs_add("/bin/README",
+              "UNHOX /bin — shell and system utilities\n",
+              40);
+
+    /* Export the boot initrd ELF so userspace can exec it via /bin path. */
+    if (g_boot_initrd_data && g_boot_initrd_size > 0) {
+        ramfs_add_blob("/bin/init.elf", g_boot_initrd_data, (uint32_t)g_boot_initrd_size);
+    }
+}
+
+int ramfs_open(const char *path)
+{
+    if (!path)
+        return -1;
+
+    for (int i = 0; i < nfiles; i++) {
+        if (files[i].active && kstrcmp(files[i].name, path) == 0)
+            return i;
+    }
+    return -1;
+}
+
+int ramfs_read(int fd, void *buf, uint32_t count, uint32_t offset)
+{
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    struct ramfs_file *f = &files[fd];
+    if (offset >= f->size)
+        return 0;   /* EOF */
+
+    uint32_t avail = f->size - offset;
+    if (count > avail)
+        count = avail;
+
+    kmemcpy(buf, f->data + offset, count);
+    return (int)count;
+}
+
+int ramfs_close(int fd)
+{
+    (void)fd;
+    return 0;
+}
+
+int ramfs_write(int fd, const void *buf, uint32_t count)
+{
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    /* For Phase 2: ramfs is read-only, write returns 0 (silent success) */
+    (void)buf;
+    (void)count;
+    return 0;
+}
+
+int ramfs_stat(int fd, uint32_t *size_out)
+{
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    if (size_out)
+        *size_out = files[fd].size;
+    return 0;
+}
+
+int ramfs_readdir(int fd, void *buf, uint32_t bufsize, uint32_t *count_out)
+{
+    /* Phase 2 stub: ramfs is flat (no directories), return 0 entries */
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+
+    if (count_out)
+        *count_out = 0;
+    (void)buf;
+    (void)bufsize;
+    return 0;
+}
+
+int ramfs_mkdir(const char *path, uint32_t mode)
+{
+    /* Phase 2 stub: ramfs does not support directory creation */
+    (void)path;
+    (void)mode;
+    return -1;
+}
+
+int ramfs_unlink(const char *path)
+{
+    /* Phase 2 stub: ramfs is read-only, cannot delete files */
+    (void)path;
+    return -1;
+}
+
+int ramfs_size(int fd)
+{
+    if (fd < 0 || fd >= nfiles || !files[fd].active)
+        return -1;
+    return (int)files[fd].size;
+}

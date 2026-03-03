@@ -77,6 +77,14 @@ struct task {
     uint32_t            t_thread_count;
 
     /*
+     * t_cr3 — physical address of this task's PML4 page table.
+     * Loaded into CR3 when context-switching to a thread in this task.
+     * Kernel tasks use the kernel PML4; user tasks get a per-task PML4
+     * that shares the kernel's identity and higher-half mappings.
+     */
+    uint64_t            t_cr3;
+
+    /*
      * t_ref_count — reference count.
      * Prevents premature destruction while other kernel code holds a pointer.
      */
@@ -86,6 +94,18 @@ struct task {
 /* -------------------------------------------------------------------------
  * Task operations
  * ------------------------------------------------------------------------- */
+
+/*
+ * task_copy — duplicate a task for fork().
+ *
+ * Creates a new task with a separate address space that is a copy of
+ * the parent's vm_map entries.  The new task has its own IPC space,
+ * isolated from the parent.  No threads are created; the BSD server's
+ * fork handler will create the initial thread.
+ *
+ * Returns a pointer to the new child task, or NULL on failure.
+ */
+struct task *task_copy(struct task *parent);
 
 /*
  * task_create — create a new task.

@@ -57,15 +57,23 @@ git submodule update --init --recursive
 
 ## Current Status
 
-**Phase 0 — Source Archaeology & Repository Setup** (in progress)
+**Phase 1 — Kernel Core**: complete and booting under QEMU.
 
-- [x] Repository directory structure created
-- [x] Framework submodules added (libobjc2, GNUstep Foundation, AppKit)
-- [ ] CMU Mach 3.0 sources mirrored to `archive/cmu-mach/`
-- [ ] Build system (CMake + Nix)
-- [ ] First kernel code
+- [x] Kernel boots and prints serial banner (v0.1)
+- [x] Mach IPC milestone test passes (v0.2)
+- [x] Bootstrap server register/lookup works (v0.3)
+- [x] Userspace `init.elf` launches and runs
 
-See [TASKS.md](TASKS.md) for the full actionable task list.
+**Phase 2 — System Servers**: in progress.
+
+- [x] Hand-written IPC message protocols for bootstrap/VFS/BSD
+- [x] VFS ramfs server thread (open/read/close path)
+- [x] BSD server thread (serial-backed fd 0/1/2)
+- [x] Minimal interactive shell prompt (`unhox$`) appears on serial console (v0.5 shell prompt criterion)
+- [ ] BSD process model (`fork/exec/wait/signals`) and full POSIX syscall surface
+- [ ] VFS write/stat/readdir/mkdir/unlink and `/bin/sh` execution path
+
+See [TASKS.md](TASKS.md) for the detailed, phase-by-phase checklist.
 
 ## Full Software Stack
 

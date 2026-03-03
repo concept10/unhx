@@ -83,4 +83,43 @@ struct thread *sched_current(void);
  */
 void sched_set_current(struct thread *th);
 
+/*
+ * sched_sleep — put the current thread to sleep (WAITING state).
+ * The thread is removed from the run queue and will not be scheduled
+ * until sched_wakeup() is called on it.  Used by blocking IPC receive.
+ */
+void sched_sleep(void);
+
+/*
+ * sched_wakeup — wake a sleeping thread.
+ * Sets the thread to RUNNABLE state and places it on the run queue.
+ * Called by IPC send when a message arrives for a blocked receiver.
+ */
+void sched_wakeup(struct thread *th);
+
+/*
+ * sched_yield_if_waiting — yield the CPU only if still in WAITING state.
+ *
+ * Called by ipc_mqueue_receive after setting th_state=WAITING (under the
+ * mqueue lock) and releasing the lock.  Between the unlock and this call,
+ * sched_wakeup() may already have run and set our state back to RUNNABLE.
+ * In that case we return immediately so the caller can retry the dequeue.
+ *
+ * This closes the race in sched_sleep() where:
+ *   1. mqueue_unlock() re-enables IRQs (state still RUNNABLE)
+ *   2. sender calls sched_wakeup() → sees RUNNABLE → does nothing
+ *   3. sched_sleep() sets WAITING → thread blocks forever
+ *
+ * By setting state=WAITING before mqueue_unlock and using this function
+ * instead of sched_sleep(), the wakeup is never missed.
+ */
+void sched_yield_if_waiting(void);
+
+/*
+ * sched_run — enable interrupts and enter the idle loop.
+ * Called at the end of kernel_main() after all threads are created.
+ * This function never returns.
+ */
+void sched_run(void);
+
 #endif /* SCHED_H */

@@ -12,6 +12,8 @@
 
 #include "platform.h"
 #include "gdt.h"
+#include "idt.h"
+#include "pic.h"
 
 /* COM1 I/O base address (standard PC) */
 #define COM1_PORT   0x3F8
@@ -52,6 +54,14 @@ void serial_putchar(char c)
     while ((inb(COM1_PORT + 5) & 0x20) == 0)
         ;
     outb(COM1_PORT, (unsigned char)c);
+}
+
+char serial_getchar(void)
+{
+    /* Check if data is available (bit 0 of LSR) */
+    if ((inb(COM1_PORT + 5) & 0x01) == 0)
+        return 0;  /* no data */
+    return (char)inb(COM1_PORT);
 }
 
 void serial_putstr(const char *s)
@@ -97,4 +107,6 @@ void platform_init(void)
 {
     gdt_init();
     serial_init();
+    pic_init();
+    idt_init();
 }

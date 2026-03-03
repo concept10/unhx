@@ -133,9 +133,12 @@ kern_return_t mach_msg_receive(struct task *receiver,
 
     /*
      * Dequeue a message from the port's queue.
+     * Phase 1 callers use non-blocking; blocking IPC uses
+     * ipc_mqueue_receive directly with blocking=1.
      */
     mach_msg_return_t mr = ipc_mqueue_receive(port->ip_messages,
-                                               buf, buf_size, out_size);
+                                               buf, buf_size, out_size,
+                                               0 /* non-blocking */);
 
     if (mr != MACH_MSG_SUCCESS)
         return KERN_FAILURE;

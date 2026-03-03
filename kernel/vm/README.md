@@ -19,10 +19,10 @@ putting pager logic in the kernel.
 ## Implementation Plan
 
 - [ ] `vm_map.h` / `vm_map.c` — address space management
-- [ ] `vm_object.h` / `vm_object.c` — memory object lifecycle
+- [x] `vm_object.h` / `vm_object.c` — memory object lifecycle
 - [ ] `vm_page.h` / `vm_page.c` — physical page allocator
 - [ ] `pmap.h` — platform-specific page table abstraction (implemented in `platform/`)
-- [ ] `vm_fault.c` — page fault handler, calls external pager
+- [x] `vm_fault.c` — page fault handler (Phase 1: demand-zero path; external pager deferred)
 - [ ] `memory_object.c` — external pager protocol stubs
 
 ## References

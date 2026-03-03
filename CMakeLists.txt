@@ -23,7 +23,12 @@ option(UNHOX_BOOT_TESTS "Include kernel boot self-tests" OFF)
 add_subdirectory(kernel)
 
 # ---------------------------------------------------------------------------
-# Userspace servers (Phase 2+)
+# Userspace programs (Phase 2)
+# ---------------------------------------------------------------------------
+add_subdirectory(user)
+
+# ---------------------------------------------------------------------------
+# Userspace servers (Phase 3+)
 # ---------------------------------------------------------------------------
 # add_subdirectory(servers/bootstrap)
 # add_subdirectory(servers/bsd)

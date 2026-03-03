@@ -204,3 +204,234 @@ void paging_init(uint64_t mmap_addr, uint32_t mmap_len)
         : "memory"
     );
 }
+
+/* -------------------------------------------------------------------------
+ * paging_kernel_pml4_phys — return the physical address of the kernel PML4.
+ * Since we use identity mapping, the pointer IS the physical address.
+ * ------------------------------------------------------------------------- */
+
+uint64_t paging_kernel_pml4_phys(void)
+{
+    return (uint64_t)kernel_pml4;
+}
+
+/* -------------------------------------------------------------------------
+ * paging_create_task_pml4 — create a per-task PML4 for address space
+ * isolation.  Copies the kernel's PML4[0] (identity) and PML4[511]
+ * (higher-half) so that kernel code works in every task.
+ * ------------------------------------------------------------------------- */
+
+uint64_t paging_create_task_pml4(void)
+{
+    struct vm_page *pml4_pg = vm_page_alloc();
+    if (!pml4_pg)
+        return 0;
+
+    uint64_t *pml4 = (uint64_t *)pml4_pg->pg_phys_addr;
+    kmemset(pml4, 0, 4096);
+
+    /*
+     * Create a private PDPT for PML4[0].
+     *
+     * We cannot share the kernel's identity_pdpt directly, because
+     * in x86-64 all page-table levels on the walk to a user page must
+     * have PTE_USER set, and the kernel's identity entries do not.
+     * Using the shared PDPT would also cause any new user page-table
+     * entries to pollute the kernel's page tables.
+     *
+     * Instead, allocate a task-private PDPT with PTE_USER and a
+     * task-private PD with PTE_USER, then copy only the two 2 MB
+     * kernel huge-page entries (identity map, no PTE_USER — supervisor-
+     * only) into the private PD.  User pages mapped later via
+     * paging_map_page() will populate PD entries [2..511] with PTE_USER.
+     */
+    struct vm_page *pdpt_pg = vm_page_alloc();
+    struct vm_page *pd_pg   = vm_page_alloc();
+    if (!pdpt_pg || !pd_pg) {
+        if (pdpt_pg) vm_page_free(pdpt_pg);
+        if (pd_pg)   vm_page_free(pd_pg);
+        vm_page_free(pml4_pg);
+        return 0;
+    }
+
+    uint64_t *priv_pdpt = (uint64_t *)pdpt_pg->pg_phys_addr;
+    uint64_t *priv_pd   = (uint64_t *)pd_pg->pg_phys_addr;
+    kmemset(priv_pdpt, 0, 4096);
+    kmemset(priv_pd,   0, 4096);
+
+    /*
+     * Copy the two 2 MB identity-map entries into the private PD.
+     * These stay supervisor-only (no PTE_USER) so user code cannot
+     * read the kernel's identity-mapped memory.
+     */
+    uint64_t *kern_pdpt = (uint64_t *)(kernel_pml4[0] & PTE_ADDR_MASK);
+    uint64_t *kern_pd   = (uint64_t *)(kern_pdpt[0]   & PTE_ADDR_MASK);
+    priv_pd[0] = kern_pd[0];   /* 0x000000 – 0x1FFFFF: supervisor only */
+    priv_pd[1] = kern_pd[1];   /* 0x200000 – 0x3FFFFF: supervisor only */
+
+    /* Wire PDPT[0] → private PD (PTE_USER so user walks can proceed) */
+    priv_pdpt[0] = (uint64_t)priv_pd | PTE_PRESENT | PTE_WRITE | PTE_USER;
+
+    /* Wire PML4[0] → private PDPT (PTE_USER) */
+    pml4[0] = (uint64_t)priv_pdpt | PTE_PRESENT | PTE_WRITE | PTE_USER;
+
+    /* Share the higher-half kernel mapping (read-only for user) */
+    pml4[511] = kernel_pml4[511];
+
+    return (uint64_t)pml4;
+}
+
+/* -------------------------------------------------------------------------
+ * paging_map_page — map a 4 KB page in an arbitrary PML4.
+ *
+ * Walks the 4-level hierarchy from the given PML4, allocating
+ * intermediate tables (PDPT, PD, PT) as needed.
+ * ------------------------------------------------------------------------- */
+
+void paging_map_page(uint64_t *pml4, uint64_t virt, uint64_t phys, uint64_t flags)
+{
+    if (!pml4)
+        return;
+
+    /* Level 4: PML4 → PDPT */
+    uint64_t i4 = pml4_index(virt);
+    uint64_t *pdpt;
+
+    if (pml4[i4] & PTE_PRESENT) {
+        pdpt = (uint64_t *)(pml4[i4] & PTE_ADDR_MASK);
+    } else {
+        struct vm_page *pg = vm_page_alloc();
+        if (!pg) return;
+        pdpt = (uint64_t *)pg->pg_phys_addr;
+        kmemset(pdpt, 0, 4096);
+        pml4[i4] = (uint64_t)pdpt | PTE_PRESENT | PTE_WRITE | PTE_USER;
+    }
+
+    /* Level 3: PDPT → PD */
+    uint64_t i3 = pdpt_index(virt);
+    uint64_t *pd;
+
+    if (pdpt[i3] & PTE_PRESENT) {
+        pd = (uint64_t *)(pdpt[i3] & PTE_ADDR_MASK);
+    } else {
+        struct vm_page *pg = vm_page_alloc();
+        if (!pg) return;
+        pd = (uint64_t *)pg->pg_phys_addr;
+        kmemset(pd, 0, 4096);
+        pdpt[i3] = (uint64_t)pd | PTE_PRESENT | PTE_WRITE | PTE_USER;
+    }
+
+    /* Level 2: PD → PT */
+    uint64_t i2 = pd_index(virt);
+    uint64_t *pt;
+
+    if (pd[i2] & PTE_PRESENT) {
+        if (pd[i2] & PTE_HUGE)
+            return;  /* can't split a 2 MB huge page */
+        pt = (uint64_t *)(pd[i2] & PTE_ADDR_MASK);
+    } else {
+        struct vm_page *pg = vm_page_alloc();
+        if (!pg) return;
+        pt = (uint64_t *)pg->pg_phys_addr;
+        kmemset(pt, 0, 4096);
+        pd[i2] = (uint64_t)pt | PTE_PRESENT | PTE_WRITE | PTE_USER;
+    }
+
+    /* Level 1: PT → physical page */
+    uint64_t i1 = pt_index(virt);
+    pt[i1] = (phys & PTE_ADDR_MASK) | flags | PTE_PRESENT;
+}
+
+/* -------------------------------------------------------------------------
+ * paging_unmap_page — clear the PTE for a 4 KB page in an arbitrary PML4.
+ * Does NOT free intermediate tables or the physical page.
+ * ------------------------------------------------------------------------- */
+
+void paging_unmap_page(uint64_t *pml4, uint64_t virt)
+{
+    if (!pml4)
+        return;
+
+    uint64_t i4 = pml4_index(virt);
+    if (!(pml4[i4] & PTE_PRESENT)) return;
+    uint64_t *pdpt = (uint64_t *)(pml4[i4] & PTE_ADDR_MASK);
+
+    uint64_t i3 = pdpt_index(virt);
+    if (!(pdpt[i3] & PTE_PRESENT)) return;
+    uint64_t *pd = (uint64_t *)(pdpt[i3] & PTE_ADDR_MASK);
+
+    uint64_t i2 = pd_index(virt);
+    if (!(pd[i2] & PTE_PRESENT) || (pd[i2] & PTE_HUGE)) return;
+    uint64_t *pt = (uint64_t *)(pd[i2] & PTE_ADDR_MASK);
+
+    uint64_t i1 = pt_index(virt);
+    pt[i1] = 0;
+
+    /* Invalidate TLB entry */
+    __asm__ volatile ("invlpg (%0)" : : "r"(virt) : "memory");
+}
+
+/* -------------------------------------------------------------------------
+ * paging_destroy_task_pml4 — free all per-task page table pages.
+ *
+ * Walks PML4 entries 1–510 (skipping kernel entries at 0 and 511) and
+ * recursively frees PDPT → PD → PT pages.  Does NOT free physical
+ * page frames that were mapped.
+ * ------------------------------------------------------------------------- */
+
+static void paging_free_pt_pages(uint64_t *pd)
+{
+    for (int i = 0; i < PT_ENTRIES; i++) {
+        if ((pd[i] & PTE_PRESENT) && !(pd[i] & PTE_HUGE)) {
+            uint64_t pt_phys = pd[i] & PTE_ADDR_MASK;
+            struct vm_page *pg = vm_page_lookup(pt_phys);
+            if (pg)
+                vm_page_free(pg);
+        }
+    }
+}
+
+static void paging_free_pd_pages(uint64_t *pdpt)
+{
+    for (int i = 0; i < PT_ENTRIES; i++) {
+        if (pdpt[i] & PTE_PRESENT) {
+            uint64_t *pd = (uint64_t *)(pdpt[i] & PTE_ADDR_MASK);
+            paging_free_pt_pages(pd);
+            struct vm_page *pg = vm_page_lookup((uint64_t)pd);
+            if (pg)
+                vm_page_free(pg);
+        }
+    }
+}
+
+void paging_destroy_task_pml4(uint64_t pml4_phys)
+{
+    if (!pml4_phys)
+        return;
+
+    uint64_t *pml4 = (uint64_t *)pml4_phys;
+
+    /*
+     * Free all user-space entries: indices 0–510.
+     *
+     * PML4[0] was a task-private PDPT/PD (not the kernel's shared
+     * identity_pdpt), so it must be freed.  paging_free_pd_pages uses
+     * vm_page_lookup(), which returns NULL for kernel static arrays,
+     * so kernel-only tables are safely skipped.
+     * PML4[511] is the shared higher-half — skip it.
+     */
+    for (int i = 0; i < 511; i++) {
+        if (pml4[i] & PTE_PRESENT) {
+            uint64_t *pdpt = (uint64_t *)(pml4[i] & PTE_ADDR_MASK);
+            paging_free_pd_pages(pdpt);
+            struct vm_page *pg = vm_page_lookup((uint64_t)pdpt);
+            if (pg)
+                vm_page_free(pg);
+        }
+    }
+
+    /* Free the PML4 page itself */
+    struct vm_page *pg = vm_page_lookup(pml4_phys);
+    if (pg)
+        vm_page_free(pg);
+}
