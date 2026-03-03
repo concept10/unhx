@@ -23,6 +23,9 @@
 struct ipc_port;
 struct interrupt_frame;
 
+/* Minimal signal numbers used by the BSD process layer. */
+#define BSD_SIGCHLD  17
+
 /* BSD message IDs */
 #define BSD_MSG_WRITE   300
 #define BSD_MSG_READ    301
@@ -88,5 +91,19 @@ void bsd_server_main(void);
  * Returns 0 on success, -1 on failure.
  */
 int bsd_exec_current(const char *path, struct interrupt_frame *frame);
+
+/*
+ * Process lifecycle helpers used by syscall dispatch.
+ */
+void bsd_proc_register_fork(uint32_t parent_task_id, uint32_t child_task_id);
+void bsd_proc_exit_current(int status);
+int64_t bsd_proc_wait(uint32_t parent_task_id, int64_t wanted_child_task_id, int *status_out);
+
+/*
+ * Minimal cross-task signal bookkeeping.
+ * Signals are queued as bit flags in the destination task's process slot.
+ */
+void bsd_signal_send(uint32_t src_task_id, uint32_t dst_task_id, int signo);
+int bsd_signal_take_pending(uint32_t task_id);
 
 #endif /* BSD_MSG_H */

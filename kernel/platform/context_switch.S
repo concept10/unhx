@@ -130,3 +130,19 @@ user_entry_trampoline:
     pushq   $0x1B           /* CS  = GDT_SELECTOR_UCODE | RPL=3          */
     pushq   %r12            /* RIP = user entry point                     */
     iretq
+
+/* ====================================================================
+ * fork_child_return — return from fork in the child process.
+ *
+ * Called after context_switch_asm's `ret` when a forked child thread
+ * is scheduled for the first time. The parent's interrupt_frame is
+ * already on the kernel stack (set up by thread_create_fork_child),
+ * with RAX=0 to indicate child process return value.
+ *
+ * Simply executes iretq to return to user space with the prepared frame.
+ * ==================================================================== */
+
+    .globl  fork_child_return
+    .type   fork_child_return, @function
+fork_child_return:
+    iretq

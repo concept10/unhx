@@ -16,6 +16,7 @@
 #define THREAD_H
 
 #include "mach/mach_types.h"
+#include "platform/idt.h"
 #include <stdint.h>
 
 /* Forward declarations */
@@ -157,5 +158,28 @@ extern void context_switch_asm(struct cpu_state *from, struct cpu_state *to);
 
 /* Assembly trampoline that enters ring 3 via iretq (context_switch.S). */
 extern void user_entry_trampoline(void);
+
+/* Assembly routine for returning to user space from a forked child. */
+extern void fork_child_return(void);
+
+/*
+ * thread_create_fork_child — create a user thread for a fork() child process.
+ *
+ * Specifically for handling fork(): creates a user thread that will return
+ * to the same syscall instruction point as the parent, but with RAX=0
+ * (child process return value).
+ *
+ * task:         the child task (created by task_copy from parent)
+ * parent_frame: the parent's interrupt frame at the fork() syscall
+ *
+ * The child thread's stack is set up so that when scheduled, it will:
+ *   1. context_switch_asm will `ret` to fork_child_return
+ *   2. fork_child_return will `iretq` with the modified interrupt frame
+ *   3. Execution resumes in user space with RAX=0
+ *
+ * Returns pointer to the new thread, or NULL on failure.
+ */
+struct thread *thread_create_fork_child(struct task *task,
+                                        struct interrupt_frame *parent_frame);
 
 #endif /* THREAD_H */

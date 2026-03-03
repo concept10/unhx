@@ -92,8 +92,8 @@ Check off items as they are completed.
 
 ### Virtual Memory (Partial)
 - [x] Write `kernel/vm/vm.c` + `kernel/vm/vm_map.h` — vm_map struct and create
-- [ ] Write `kernel/vm/vm_object.c` — backing memory object lifecycle *(deferred to Phase 2)*
-- [ ] Write `kernel/vm/vm_fault.c` — page fault handler *(deferred — requires IDT)*
+- [x] Write `kernel/vm/vm_object.c` — backing memory object lifecycle
+- [x] Write `kernel/vm/vm_fault.c` — page fault handler
 - [x] Verify: user task runs in its own address space *(per-task PML4 assigned; boot log prints PASS when init CR3 differs from kernel CR3)*
 
 ### IPC ✅
@@ -122,10 +122,10 @@ Check off items as they are completed.
 
 ### BSD Server
 - [x] Design BSD server IPC protocol (hand-written in `servers/bsd/bsd_msg.h`)
-- [~] Implement `fork()` — task_copy() primitive and syscall stub done, thread context copy deferred to Phase 3
+- [x] Implement `fork()` — task_copy() + thread_create_fork_child() for full child execution, child resumes with RAX=0 from syscall
 - [x] Implement `exec()` — load ELF binary into new address space
-- [ ] Implement `exit()` / `wait()` — process lifecycle
-- [ ] Implement signal delivery across task boundary
+- [x] Implement `exit()` / `wait()` — process lifecycle with BSD process table and reap semantics
+- [x] Implement signal delivery across task boundary — `SIGCHLD` on child exit
 - [x] Implement minimal fd table semantics (serial-backed fd 0/1/2)
 - [x] Verify milestone v0.4: fork + exec + basic syscalls work
 

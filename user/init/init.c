@@ -26,10 +26,27 @@ int main(void)
     write(1, done, my_strlen(done));
 
     long child = fork();
-    if (child >= 0) {
+    if (child > 0) {
+        /* Parent process: has child task ID */
         const char *fork_ok = "[init] PASS — fork syscall reachable\r\n";
         write(1, fork_ok, my_strlen(fork_ok));
+
+        /* Wait for the child to exit */
+        int status = -1;
+        long waited = waitpid(child, &status, 0);
+        if (waited == child) {
+            const char *wait_ok = "[init] PASS — wait syscall reachable\r\n";
+            write(1, wait_ok, my_strlen(wait_ok));
+        } else {
+            const char *wait_fail = "[init] FAIL — wait syscall failed\r\n";
+            write(1, wait_fail, my_strlen(wait_fail));
+        }
+    } else if (child == 0) {
+        /* Child process: fork returns 0 in child */
+        /* Child exits cleanly; parent's wait() will reap it */
+        exit(0);
     } else {
+        /* Error case */
         const char *fork_fail = "[init] FAIL — fork syscall failed\r\n";
         write(1, fork_fail, my_strlen(fork_fail));
     }

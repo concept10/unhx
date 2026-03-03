@@ -40,6 +40,155 @@ extern char serial_getchar(void);
 
 struct ipc_port *bsd_port = (void *)0;
 
+/* -------------------------------------------------------------------------
+ * Minimal BSD process/signal tracking (Phase 2)
+ * ------------------------------------------------------------------------- */
+
+#define BSD_PROC_MAX  64
+
+struct bsd_proc {
+    int      in_use;
+    uint32_t task_id;
+    uint32_t parent_task_id;
+    int      exited;
+    int      exit_status;
+    uint32_t pending_signals;
+};
+
+static struct bsd_proc bsd_proc_table[BSD_PROC_MAX];
+
+static struct bsd_proc *bsd_proc_find(uint32_t task_id)
+{
+    for (uint32_t i = 0; i < BSD_PROC_MAX; i++) {
+        if (bsd_proc_table[i].in_use && bsd_proc_table[i].task_id == task_id)
+            return &bsd_proc_table[i];
+    }
+    return (void *)0;
+}
+
+static struct bsd_proc *bsd_proc_get_or_create(uint32_t task_id)
+{
+    struct bsd_proc *p = bsd_proc_find(task_id);
+    if (p)
+        return p;
+
+    for (uint32_t i = 0; i < BSD_PROC_MAX; i++) {
+        if (bsd_proc_table[i].in_use)
+            continue;
+        bsd_proc_table[i].in_use = 1;
+        bsd_proc_table[i].task_id = task_id;
+        bsd_proc_table[i].parent_task_id = 0;
+        bsd_proc_table[i].exited = 0;
+        bsd_proc_table[i].exit_status = 0;
+        bsd_proc_table[i].pending_signals = 0;
+        return &bsd_proc_table[i];
+    }
+    return (void *)0;
+}
+
+void bsd_signal_send(uint32_t src_task_id, uint32_t dst_task_id, int signo)
+{
+    (void)src_task_id;
+
+    if (signo <= 0 || signo > 31)
+        return;
+
+    struct bsd_proc *dst = bsd_proc_get_or_create(dst_task_id);
+    if (!dst)
+        return;
+
+    dst->pending_signals |= (1U << (uint32_t)signo);
+}
+
+int bsd_signal_take_pending(uint32_t task_id)
+{
+    struct bsd_proc *p = bsd_proc_find(task_id);
+    if (!p || p->pending_signals == 0)
+        return 0;
+
+    for (int signo = 1; signo <= 31; signo++) {
+        uint32_t bit = (1U << (uint32_t)signo);
+        if (p->pending_signals & bit) {
+            p->pending_signals &= ~bit;
+            return signo;
+        }
+    }
+
+    return 0;
+}
+
+void bsd_proc_register_fork(uint32_t parent_task_id, uint32_t child_task_id)
+{
+    struct bsd_proc *parent = bsd_proc_get_or_create(parent_task_id);
+    struct bsd_proc *child = bsd_proc_get_or_create(child_task_id);
+    if (!parent || !child)
+        return;
+
+    child->parent_task_id = parent_task_id;
+    /* Child thread is now created and running; it will naturally exit */
+    bsd_signal_send(child_task_id, parent_task_id, BSD_SIGCHLD);
+}
+
+void bsd_proc_exit_current(int status)
+{
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return;
+
+    uint32_t self = th->th_task->task_id;
+    serial_putstr("[bsd_exit] task ");
+    serial_puthex(self);
+    serial_putstr(" status=");
+    serial_puthex(status);
+    serial_putstr("\r\n");
+
+    struct bsd_proc *me = bsd_proc_get_or_create(self);
+    if (!me)
+        return;
+
+    me->exited = 1;
+    me->exit_status = status;
+
+    if (me->parent_task_id != 0)
+        bsd_signal_send(self, me->parent_task_id, BSD_SIGCHLD);
+}
+
+int64_t bsd_proc_wait(uint32_t parent_task_id, int64_t wanted_child_task_id, int *status_out)
+{
+    for (;;) {
+        int saw_child = 0;
+
+        for (uint32_t i = 0; i < BSD_PROC_MAX; i++) {
+            struct bsd_proc *p = &bsd_proc_table[i];
+            if (!p->in_use)
+                continue;
+            if (p->parent_task_id != parent_task_id)
+                continue;
+
+            saw_child = 1;
+
+            if (wanted_child_task_id > 0 && (uint32_t)wanted_child_task_id != p->task_id)
+                continue;
+
+            if (!p->exited)
+                continue;
+
+            if (status_out)
+                *status_out = p->exit_status;
+
+            uint32_t pid = p->task_id;
+            p->in_use = 0; /* reaped */
+            return (int64_t)pid;
+        }
+
+        if (!saw_child)
+            return -1;
+
+        /* No exited child yet: wait cooperatively. */
+        sched_yield();
+    }
+}
+
 static int bsd_vfs_open(const char *path, struct ipc_port *reply)
 {
     int ret = -1;

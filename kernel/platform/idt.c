@@ -10,6 +10,7 @@
 #include "idt.h"
 #include "pic.h"
 #include "gdt.h"
+#include "vm/vm_fault.h"
 
 /* Serial output (platform layer) */
 extern void serial_putstr(const char *s);
@@ -117,9 +118,18 @@ void isr_dispatch(struct interrupt_frame *frame)
         serial_putstr("\r\n");
 
         if (vec == 14) {
-            /* Page fault: print CR2 (faulting address) */
+            /* Page fault: attempt VM recovery before panicking. */
+            uint64_t fault_addr = read_cr2();
+            kern_return_t kr = vm_fault_handle(frame, fault_addr, frame->error_code);
+            if (kr == KERN_SUCCESS)
+                return;
+
             serial_putstr("  CR2 (fault): ");
-            serial_puthex(read_cr2());
+            serial_puthex(fault_addr);
+            serial_putstr("\r\n");
+
+            serial_putstr("  vm_fault:   ");
+            serial_puthex((uint64_t)(uint32_t)kr);
             serial_putstr("\r\n");
         }
 
