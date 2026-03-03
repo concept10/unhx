@@ -82,7 +82,10 @@ static int64_t sys_read(struct interrupt_frame *frame)
 
 static void sys_exit(struct interrupt_frame *frame)
 {
-    (void)frame;
+    int status = (int)frame->rdi;
+
+    bsd_proc_exit_current(status);
+
     struct thread *th = sched_current();
     if (th) {
         th->th_state = THREAD_STATE_HALTED;
@@ -94,24 +97,20 @@ static void sys_exit(struct interrupt_frame *frame)
 }
 
 /* -------------------------------------------------------------------------
- * SYS_FORK — fork the current task (Phase 2 stub).
+ * SYS_FORK — fork the current task (Phase 2 implementation).
  *
  * Arguments: (none)
  *
- * Returns: child task ID in parent, 0 in child (when fully implemented).
+ * Returns: child task ID in parent, 0 in child.
  *
  * Phase 2 Implementation:
  *   - Creates a new task with a copy of the parent's address space
- *   - Does NOT yet create a thread in the child
- *   - Returns child task ID to parent
- *   - Full context copying for the child thread deferred to Phase 3
+ *   - Creates a user thread in the child that will return with RAX=0
+ *   - Parent continues with RAX=child_task_id
+ *   - Child is added to the scheduler run queue
  *
- * Real Implementation (Phase 3+):
- *   The child task will be created with a new thread that resumes at the
- *   syscall return point with RAX = 0 (child return value).  This requires:
- *   - Copying the parent thread's register state
- *   - Setting up the child thread's stack/RIP to return from int $0x80
- *   - Proper parent-child task linking for wait()
+ * The child thread is set up so that when first scheduled, it will
+ * return from the fork() syscall as if it were a new process.
  * --------- ------- ------------------------------------------------- */
 
 static int64_t sys_fork(struct interrupt_frame *frame)
@@ -126,19 +125,32 @@ static int64_t sys_fork(struct interrupt_frame *frame)
     if (!parent || !parent->active)
         return -1;
 
+    serial_putstr("[fork] cloning parent task\r\n");
+
     /* Clone the parent task (copy vm_map and create new ipc_space) */
     struct task *child = task_copy(parent);
-    if (!child)
+    if (!child) {
+        serial_putstr("[fork] ERROR: task_copy failed\r\n");
         return -1;
+    }
 
-    /* For Phase 2, we do not yet create a thread in the child.
-     * Phase 3 will implement proper thread creation and context setup
-     * so that the child resumes at the syscall return with RAX = 0.
-     *
-     * Returning the child task ID to the parent; child task will be
-     * runnable once we implement thread creation below.
-     */
+    serial_putstr("[fork] creating child thread\r\n");
 
+    /* Create a user thread in the child task that will return from fork with RAX=0 */
+    struct thread *child_th = thread_create_fork_child(child, frame);
+    if (!child_th) {
+        serial_putstr("[fork] ERROR: thread_create_fork_child failed\r\n");
+        return -1;
+    }
+
+    serial_putstr("[fork] registering in BSD process table\r\n");
+
+    /* Register the fork in the BSD process table (child starts running naturally) */
+    bsd_proc_register_fork(parent->task_id, child->task_id);
+
+    serial_putstr("[fork] returning to parent\r\n");
+
+    /* Return child task ID to parent */
     return (int64_t)child->task_id;
 }
 
@@ -170,22 +182,24 @@ static int64_t sys_exec(struct interrupt_frame *frame)
 /* -------------------------------------------------------------------------
  * SYS_WAIT — wait for a child task to exit and reap it.
  *
- * RDI = child task ID (for now; real Mach uses pid)
+ * RDI = child task ID (<=0 means any child)
  * RSI = status out (pointer to int where exit status is stored)
  *
  * Returns: child task ID on success, -1 on error.
  *
- * TODO (Phase 3):
- *   - Implement proper parent-child relationship tracking
- *   - Handle multiple children
- *   - Return exit status correctly
+ * Phase 2 implementation is backed by the BSD process table.
  * --------- ------- ------------------------------------------------- */
 
 static int64_t sys_wait(struct interrupt_frame *frame)
 {
-    (void)frame;
-    /* Deferred to Phase 3 — requires process table management */
-    return -1;
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return -1;
+
+    int64_t wanted_child = (int64_t)frame->rdi;
+    int *status_out = (int *)frame->rsi;
+
+    return bsd_proc_wait(th->th_task->task_id, wanted_child, status_out);
 }
 
 /* -------------------------------------------------------------------------

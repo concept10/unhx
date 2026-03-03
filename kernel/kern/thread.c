@@ -237,3 +237,104 @@ void thread_switch(struct thread *from, struct thread *to)
 
     context_switch_asm(&from->th_cpu_state, &to->th_cpu_state);
 }
+
+/* ====================================================================
+ * thread_create_fork_child — create a user thread for a fork() child.
+ *
+ * Sets up a new user thread that will resume at the same point as the
+ * parent's syscall (fork()), but with RAX=0 (child return value).
+ *
+ * The kernel stack is pre-built with:
+ *   - Callee-saved registers for context_switch_asm to pop
+ *   - Return address pointing to fork_child_return assembly routine
+ *   - A cloned interrupt_frame (parent's frame with RAX=0) ready for iretq
+ *
+ * When the child thread is first scheduled:
+ *   1. context_switch_asm restores RSP from cpu_state and pops callee-saved regs
+ *   2. context_switch_asm executes `ret` to fork_child_return
+ *   3. fork_child_return executes `iretq` with the prepared frame
+ *   4. CPU restores the user context and user code runs with RAX=0
+ * ==================================================================== */
+struct thread *thread_create_fork_child(struct task *task,
+                                        struct interrupt_frame *parent_frame)
+{
+    if (!task || !parent_frame)
+        return (void *)0;
+
+    struct thread *th = thread_pool_alloc();
+    if (!th)
+        return (void *)0;
+
+    th->th_id    = next_thread_id++;
+    th->th_state = THREAD_STATE_RUNNABLE;
+    th->th_task  = task;
+
+    /* Allocate kernel stack for syscall/interrupt handling */
+    uint32_t stack_size = THREAD_STACK_SIZE;
+    void *stack = kalloc(stack_size);
+    if (!stack) {
+        th->th_active = 0;
+        return (void *)0;
+    }
+
+    th->th_stack_base = (uint64_t)stack;
+    th->th_stack_size = stack_size;
+    th->th_stack_top  = (uint64_t)stack + stack_size;
+
+    /*
+     * Build the kernel stack to return to user space with the modified
+     * interrupt frame. Layout (from lowest to highest address):
+     *
+     *   [sp]       = 0           (r15 value)
+     *   [sp+8]     = 0           (r14 value)
+     *   [sp+16]    = 0           (r13 value)
+     *   [sp+24]    = 0           (r12 value)
+     *   [sp+32]    = 0           (rbp value)
+     *   [sp+40]    = 0           (rbx value)
+     *   [sp+48]    = fork_child_return  (return address for context_switch ret)
+     *   [sp+56]    = child_frame.rip    (start of interrupt_frame for iretq)
+     *   [sp+64]    = child_frame.cs
+     *   [sp+72]    = child_frame.rflags
+     *   [sp+80]    = child_frame.rsp
+     *   [sp+88]    = child_frame.ss     (end of interrupt_frame)
+     */
+
+    /* Clone parent's frame and set RAX=0 for child return value */
+    struct interrupt_frame child_frame;
+    kmemcpy(&child_frame, parent_frame, sizeof(struct interrupt_frame));
+    child_frame.rax = 0;  /* child process returns 0 from fork */
+
+    /* Align stack to 16 bytes */
+    uint64_t sp = th->th_stack_top & ~0xFULL;
+
+    /* Push the interrupt frame (in reverse order so it can be popped by iretq) */
+    sp -= 8; *(uint64_t *)sp = child_frame.ss;
+    sp -= 8; *(uint64_t *)sp = child_frame.rsp;
+    sp -= 8; *(uint64_t *)sp = child_frame.rflags;
+    sp -= 8; *(uint64_t *)sp = child_frame.cs;
+    sp -= 8; *(uint64_t *)sp = child_frame.rip;
+
+    /* Push return address and callee-saved registers for context_switch_asm */
+    sp -= 8; *(uint64_t *)sp = (uint64_t)fork_child_return;
+    sp -= 8; *(uint64_t *)sp = 0;  /* rbx */
+    sp -= 8; *(uint64_t *)sp = 0;  /* rbp */
+    sp -= 8; *(uint64_t *)sp = 0;  /* r12 */
+    sp -= 8; *(uint64_t *)sp = 0;  /* r13 */
+    sp -= 8; *(uint64_t *)sp = 0;  /* r14 */
+    sp -= 8; *(uint64_t *)sp = 0;  /* r15 */
+
+    th->th_cpu_state.rsp = sp;
+
+    /* Initialize scheduler fields */
+    th->th_priority = 10;
+    th->th_quantum  = 10;
+
+    /* Link into task's thread list */
+    th->th_task_next = task->t_threads;
+    task->t_threads  = th;
+    task->t_thread_count++;
+
+    th->th_sched_next = (void *)0;
+
+    return th;
+}
