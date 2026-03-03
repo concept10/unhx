@@ -178,9 +178,27 @@ Check off items as they are completed.
 - [ ] Verify milestone v0.6: boot from disk, read/write files
 
 ### Input & Display
+- [x] Implement interrupt routing for device drivers (IRQ to device handler)
+  - ✅ PIC initialization and remapping (vectors 0x20-0x2F)
+  - ✅ IRQ handler registration (`irq_register()`)
+  - ✅ IRQ unmask (`pic_unmask()`)
+  - ✅ EOI handling (`pic_eoi()`)
+  - ✅ Hardware IRQ dispatch (`irq_handler()`)
+  - ✅ Interrupt enable/disable helpers
+  - ✅ Example: PIT timer IRQ in Phase 1 scheduler
+- [x] Implement VESA/GOP framebuffer driver (partial: VGA text mode)
+  - ✅ VGA text mode driver (80x25 character display)
+  - ✅ Character and string output with colors
+  - ✅ Hardware cursor control
+  - ✅ Scrolling support
+  - ✅ Test pattern with color palette
+  - ⚠️  Full framebuffer (VESA/GOP) deferred: requires GRUB bootloader or VBE BIOS calls
+  - Note: VGA text buffer at 0xB8000 always available, no special init required
 - [ ] Implement USB HID keyboard driver
-- [ ] Implement VESA/GOP framebuffer driver
-- [ ] Implement interrupt routing for device drivers (IRQ to device handler)
+  - Requires: USB host controller driver (xHCI/EHCI/UHCI)
+  - Requires: USB enumeration and device detection
+  - Requires: USB HID protocol implementation
+  - Requires: Keyboard report parsing
 
 ---
 

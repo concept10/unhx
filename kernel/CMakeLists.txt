@@ -116,6 +116,8 @@ set(KERNEL_SOURCES
     device/pci.c
     device/virtio_blk.c
     device/virtio_net.c
+    device/framebuffer.c
+    device/vga_text.c
 )
 
 if(UNHOX_BOOT_TESTS)
