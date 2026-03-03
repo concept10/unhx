@@ -45,6 +45,8 @@ extern void serial_putstr(const char *s);
 extern void vfs_server_main(void);
 extern void bsd_server_main(void);
 
+extern uint8_t __bss_end;
+
 const uint8_t *g_boot_initrd_data = (const uint8_t *)0;
 uint64_t g_boot_initrd_size = 0;
 
@@ -55,6 +57,71 @@ uint64_t g_boot_initrd_size = 0;
 static volatile int vfs_test_complete = 0;
 static volatile int init_thread_staged = 0;
 static struct thread *pending_init_thread = (void *)0;
+
+/* Early paging currently maps only the first 4 MB. Keep allocator in-range. */
+#define EARLY_PHYS_MIN   0x200000ULL
+#define EARLY_PHYS_MAX   0x400000ULL
+
+static uint64_t align_up_u64(uint64_t v, uint64_t a)
+{
+    return (v + (a - 1)) & ~(a - 1);
+}
+
+static void detect_vm_range_from_multiboot(uint32_t mb_info_phys,
+                                           vm_address_t *base_out,
+                                           vm_size_t *size_out)
+{
+    *base_out = 0;
+    *size_out = 0;
+
+    struct multiboot_info *mbinfo =
+        (struct multiboot_info *)(uint64_t)mb_info_phys;
+    if (!mbinfo)
+        return;
+
+    /* Reserve kernel image + BSS + optional modules. */
+    uint64_t reserved_end = align_up_u64((uint64_t)&__bss_end, 4096);
+    if ((mbinfo->flags & MULTIBOOT_INFO_MODS) && mbinfo->mods_count > 0) {
+        struct multiboot_mod *mods =
+            (struct multiboot_mod *)(uint64_t)mbinfo->mods_addr;
+        for (uint32_t i = 0; i < mbinfo->mods_count; i++) {
+            uint64_t mod_end = align_up_u64((uint64_t)mods[i].mod_end, 4096);
+            if (mod_end > reserved_end)
+                reserved_end = mod_end;
+        }
+    }
+
+    if (!(mbinfo->flags & MULTIBOOT_INFO_MEM_MAP) || mbinfo->mmap_length == 0)
+        return;
+
+    uint64_t mmap_base = (uint64_t)mbinfo->mmap_addr;
+    uint32_t off = 0;
+
+    while (off < mbinfo->mmap_length) {
+        struct multiboot_mmap_entry *e =
+            (struct multiboot_mmap_entry *)(mmap_base + off);
+
+        if (e->type == 1 && e->len > 0) {
+            uint64_t start = e->addr;
+            uint64_t end   = e->addr + e->len;
+
+            if (start < reserved_end)
+                start = reserved_end;
+            if (start < EARLY_PHYS_MIN)
+                start = EARLY_PHYS_MIN;
+            if (end > EARLY_PHYS_MAX)
+                end = EARLY_PHYS_MAX;
+
+            if (end > start) {
+                *base_out = (vm_address_t)start;
+                *size_out = (vm_size_t)(end - start);
+                return;
+            }
+        }
+
+        off += e->size + sizeof(e->size);
+    }
+}
 
 static void init_release_thread(void)
 {
@@ -460,14 +527,28 @@ void kernel_main(uint32_t mb_info_phys)
     serial_putstr("[UNHOX] initialising IPC subsystem...\r\n");
     ipc_init();
 
+    vm_address_t vm_base = 0;
+    vm_size_t vm_size = 0;
+    detect_vm_range_from_multiboot(mb_info_phys, &vm_base, &vm_size);
+
     serial_putstr("[UNHOX] initialising VM subsystem...\r\n");
-    vm_init(0, 0);  /* TODO: parse real Multiboot2 memory map */
+    vm_init(vm_base, vm_size);
 
     serial_putstr("[UNHOX] activating zone allocator...\r\n");
     kalloc_zones_init();
 
     serial_putstr("[UNHOX] initialising paging...\r\n");
-    paging_init(0, 0);
+    {
+        struct multiboot_info *mbinfo =
+            (struct multiboot_info *)(uint64_t)mb_info_phys;
+        uint64_t mmap_addr = 0;
+        uint32_t mmap_len = 0;
+        if (mbinfo && (mbinfo->flags & MULTIBOOT_INFO_MEM_MAP)) {
+            mmap_addr = (uint64_t)mbinfo->mmap_addr;
+            mmap_len = mbinfo->mmap_length;
+        }
+        paging_init(mmap_addr, mmap_len);
+    }
 
     serial_putstr("[UNHOX] initialising kernel core...\r\n");
     kern_init();
@@ -641,6 +722,12 @@ void kernel_main(uint32_t mb_info_phys)
                 if (new_pml4) {
                     utask->t_cr3      = new_pml4;
                     utask->t_map->pml4 = (uint64_t *)new_pml4;
+
+                    if (utask->t_cr3 != paging_kernel_pml4_phys()) {
+                        serial_putstr("[UNHOX] PASS — init task has its own address space\r\n");
+                    } else {
+                        serial_putstr("[UNHOX] FAIL — init task still uses kernel address space\r\n");
+                    }
                 }
 
                 /* Load ELF segments into the task's address space */
