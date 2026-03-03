@@ -12,9 +12,10 @@ import os
 import sys
 
 # Configuration
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 QEMU_BIN = "qemu-system-x86_64"
-KERNEL_PATH = "/Users/tracey/Developer/unhx/build/kernel/unhx.elf"
-INITRD_PATH = "/Users/tracey/Developer/unhx/build/user/init.elf"
+KERNEL_PATH = os.path.join(SCRIPT_DIR, "build", "kernel", "unhx.elf")
+INITRD_PATH = os.path.join(SCRIPT_DIR, "build", "user", "init.elf")
 DISK_IMAGE = "/tmp/unhx-test-disk.img"
 DISK_SIZE_MB = 10
 

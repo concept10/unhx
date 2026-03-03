@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /Users/tracey/Developer/unhx
+cd "$(dirname "$0")"
 
 # Run QEMU in background, capturing output
 ./tools/run-qemu.sh --no-build > /tmp/qemu_output.txt 2>&1 &

@@ -680,39 +680,6 @@ void kernel_main(uint32_t mb_info_phys)
         if (th_keyboard)
             sched_enqueue(th_keyboard);
 
-        /*
-         * Blocking IPC test:
-         * Thread "receiver" blocks on receive, thread "sender" sends after delay.
-         */
-        /* Disabled for deterministic v0.4 userspace verification. */
-        #if 0
-        blocking_test_port = ipc_port_alloc(ktask);
-        if (blocking_test_port) {
-            struct thread *th_recv = thread_create(ktask, blocking_ipc_receiver, 0);
-            struct thread *th_send = thread_create(ktask, blocking_ipc_sender, 0);
-            if (th_recv) sched_enqueue(th_recv);
-            if (th_send) sched_enqueue(th_send);
-        }
-
-        /* Thread A: prints "A" periodically */
-        struct thread *th_a = thread_create(ktask, sched_test_thread_a, 0);
-        if (th_a)
-            sched_enqueue(th_a);
-
-        /* Thread B: prints "B" periodically */
-
-                /*
-                 * Release userspace init only after boot test messages complete.
-                 * This keeps the first shell prompt clean and interactive.
-                 */
-                struct thread *th_init_release = thread_create(ktask, init_release_thread, 0);
-                if (th_init_release)
-                    sched_enqueue(th_init_release);
-        struct thread *th_b = thread_create(ktask, sched_test_thread_b, 0);
-        if (th_b)
-            sched_enqueue(th_b);
-        #endif
-
         serial_putstr("[UNHOX] threads created, entering scheduler\r\n");
     }
 

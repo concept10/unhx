@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 import subprocess
 import time
+import os
 
 print("[*] Starting QEMU...")
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 proc = subprocess.Popen(
     ['./tools/run-qemu.sh', '--no-build'],
     stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True,
-    cwd='/Users/tracey/Developer/unhx'
+    cwd=SCRIPT_DIR
 )
 
 start_time = time.time()
