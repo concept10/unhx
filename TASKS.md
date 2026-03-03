@@ -173,6 +173,8 @@ Check off items as they are completed.
 
 ### Storage & Filesystem
 - [ ] Implement AHCI SATA driver in device server
+  - ✅ PCI AHCI controller detection and ABAR discovery (`kernel/device/ahci.c`)
+  - ⚠️  MMIO command engine and port/DMA setup pending (requires VM device mapping)
 - [ ] Implement NVMe driver in device server
 - [ ] Implement ext2 filesystem translator in VFS server
 - [ ] Verify milestone v0.6: boot from disk, read/write files
@@ -194,11 +196,12 @@ Check off items as they are completed.
   - ✅ Test pattern with color palette
   - ⚠️  Full framebuffer (VESA/GOP) deferred: requires GRUB bootloader or VBE BIOS calls
   - Note: VGA text buffer at 0xB8000 always available, no special init required
-- [ ] Implement USB HID keyboard driver
-  - Requires: USB host controller driver (xHCI/EHCI/UHCI)
-  - Requires: USB enumeration and device detection
-  - Requires: USB HID protocol implementation
-  - Requires: Keyboard report parsing
+- [x] Implement keyboard input driver (IRQ1 legacy path)
+  - ✅ i8042 scan-code handler on IRQ1
+  - ✅ Ring-buffered character input API
+  - ✅ Shift/CapsLock handling for common keymap paths
+  - ✅ Live echo thread to serial + VGA text mode
+  - ⚠️  USB HID transport still pending (requires USB host controller stack)
 
 ---
 
