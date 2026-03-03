@@ -18,6 +18,7 @@
 
 /* Multiboot1 info flags */
 #define MULTIBOOT_INFO_MODS         (1 << 3)
+#define MULTIBOOT_INFO_MEM_MAP      (1 << 6)
 
 /*
  * struct multiboot_mod — one Multiboot1 module entry.
@@ -31,6 +32,18 @@ struct multiboot_mod {
 };
 
 /*
+ * struct multiboot_mmap_entry — one memory map entry.
+ *
+ * type == 1 means usable RAM. Other types are reserved/firmware regions.
+ */
+struct multiboot_mmap_entry {
+    uint32_t    size;       /* size of the entry excluding this field */
+    uint64_t    addr;       /* base physical address of the region */
+    uint64_t    len;        /* length in bytes */
+    uint32_t    type;       /* 1 = available RAM */
+} __attribute__((packed));
+
+/*
  * struct multiboot_info — Multiboot1 information structure.
  * Passed by the bootloader at the physical address in EBX.
  */
@@ -42,7 +55,15 @@ struct multiboot_info {
     uint32_t    cmdline;
     uint32_t    mods_count;
     uint32_t    mods_addr;
-    /* ... remaining fields omitted (not needed) */
+
+    /* a.out symbol table or ELF section header table (mutually exclusive) */
+    uint32_t    syms0;
+    uint32_t    syms1;
+    uint32_t    syms2;
+    uint32_t    syms3;
+
+    uint32_t    mmap_length;
+    uint32_t    mmap_addr;
 };
 
 #endif /* MULTIBOOT_H */
