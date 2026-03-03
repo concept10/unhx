@@ -49,6 +49,8 @@ extern void bsd_server_main(void);
 #include "device/pci.h"
 #include "device/virtio_blk.h"
 #include "device/virtio_net.h"
+#include "device/framebuffer.h"
+#include "device/vga_text.h"
 
 extern uint8_t __bss_end;
 
@@ -775,11 +777,15 @@ void kernel_main(uint32_t mb_info_phys)
 
     /* Initialize device layer (Phase 3: PCI and Virtio) */
     serial_putstr("[UNHOX] initialising device layer...\r\n");
+        vga_init();                 /* Initialize VGA text mode */
     pci_init();
+        fb_init(mb_info_phys);      /* Initialize framebuffer from multiboot info */
     virtio_blk_init();
     virtio_blk_test();  /* Run disk I/O test */
     virtio_net_init();
     virtio_net_test();  /* Run network test */
+    fb_test();                  /* Run framebuffer test (draws test pattern) */
+    vga_test();                 /* Run VGA text mode test */
 
     /* Enable interrupts and enter the scheduler — never returns */
     sched_run();
