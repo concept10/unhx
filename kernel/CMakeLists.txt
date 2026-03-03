@@ -118,6 +118,8 @@ set(KERNEL_SOURCES
     device/virtio_net.c
     device/framebuffer.c
     device/vga_text.c
+    device/keyboard.c
+    device/ahci.c
 )
 
 if(UNHOX_BOOT_TESTS)

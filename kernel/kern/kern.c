@@ -33,6 +33,7 @@
 
 /* Serial output (platform layer) */
 extern void serial_putstr(const char *s);
+extern void serial_putchar(char c);
 
 /* Bootstrap server (Phase 2: real Mach message loop as a kernel thread) */
 #include "bootstrap/bootstrap.h"
@@ -51,6 +52,8 @@ extern void bsd_server_main(void);
 #include "device/virtio_net.h"
 #include "device/framebuffer.h"
 #include "device/vga_text.h"
+#include "device/keyboard.h"
+#include "device/ahci.h"
 
 extern uint8_t __bss_end;
 
@@ -227,6 +230,19 @@ static void busy_wait(void)
 {
     for (volatile int i = 0; i < 500000; i++)
         ;
+}
+
+static void keyboard_echo_thread(void)
+{
+    for (;;) {
+        char c = keyboard_getchar_nonblock();
+        if (c) {
+            serial_putchar(c);
+            vga_putchar(c, VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+        } else {
+            sched_yield();
+        }
+    }
 }
 
 void sched_test_thread_a(void)
@@ -660,6 +676,10 @@ void kernel_main(uint32_t mb_info_phys)
             serial_putstr("[init-gate] WARN: failed to create release thread\r\n");
         }
 
+        struct thread *th_keyboard = thread_create(ktask, keyboard_echo_thread, 0);
+        if (th_keyboard)
+            sched_enqueue(th_keyboard);
+
         /*
          * Blocking IPC test:
          * Thread "receiver" blocks on receive, thread "sender" sends after delay.
@@ -778,14 +798,17 @@ void kernel_main(uint32_t mb_info_phys)
     /* Initialize device layer (Phase 3: PCI and Virtio) */
     serial_putstr("[UNHOX] initialising device layer...\r\n");
         vga_init();                 /* Initialize VGA text mode */
+        keyboard_init();            /* IRQ1 keyboard input */
     pci_init();
         fb_init(mb_info_phys);      /* Initialize framebuffer from multiboot info */
     virtio_blk_init();
     virtio_blk_test();  /* Run disk I/O test */
     virtio_net_init();
     virtio_net_test();  /* Run network test */
+    ahci_init();
     fb_test();                  /* Run framebuffer test (draws test pattern) */
     vga_test();                 /* Run VGA text mode test */
+    keyboard_test();
 
     /* Enable interrupts and enter the scheduler — never returns */
     sched_run();

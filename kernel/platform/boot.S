@@ -24,7 +24,7 @@
  * Multiboot1 header constants
  * ========================================================================= */
     .set MB_MAGIC,     0x1BADB002
-    .set MB_FLAGS,     0x00010007       /* ALIGN | MEMINFO | VIDEO | AOUT_KLUDGE */
+    .set MB_FLAGS,     0x00010003       /* ALIGN | MEMINFO | AOUT_KLUDGE     */
     .set MB_CHECKSUM,  -(MB_MAGIC + MB_FLAGS)
 
 /* =========================================================================
@@ -46,11 +46,6 @@ mb_header:
     .long   __bss_start             /* load_end_addr— end of data segments   */
     .long   __bss_end               /* bss_end_addr — end of BSS             */
     .long   _start                  /* entry_addr   — 32-bit entry point     */
-    /* Video mode fields (valid when bit 2 of flags is set) */
-    .long   0                       /* mode_type    — 0 = linear framebuffer */
-    .long   800                     /* width        — preferred width         */
-    .long   600                     /* height       — preferred height        */
-    .long   32                      /* depth        — preferred bpp           */
 
 /* =========================================================================
  * BSS: initial kernel stack (16 KB) and boot page tables
