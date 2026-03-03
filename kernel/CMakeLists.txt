@@ -115,6 +115,7 @@ set(KERNEL_SOURCES
     # Device layer (Phase 3: PCI, Virtio)
     device/pci.c
     device/virtio_blk.c
+    device/virtio_net.c
 )
 
 if(UNHOX_BOOT_TESTS)

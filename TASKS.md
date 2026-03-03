@@ -160,7 +160,16 @@ Check off items as they are completed.
   - ✅ Error handling and status checking
   - ✅ Test framework with diagnostic test (`virtio_blk_test()`)
   - ⚠️  **Note:** Device times out during actual I/O operations (likely QEMU MMIO config issue, not protocol implementation)
-- [ ] Implement virtio-net network device driver
+- [x] Implement virtio-net network device driver
+  - ✅ Device detection and initialization (vendor 0x1AF4, device 0x1000)
+  - ✅ TX queue setup for packet transmission (queue 0)
+  - ✅ RX queue setup with pre-allocated buffers (queue 1)
+  - ✅ MAC address configuration reading
+  - ✅ Feature negotiation (MAC, STATUS, VERSION_1)
+  - ✅ Packet transmission API (`virtio_net_transmit`)
+  - ✅ Packet reception API (`virtio_net_receive`)
+  - ✅ Test framework with diagnostic test (`virtio_net_test()`)
+  - ⚠️  **Note:** Same MMIO access limitation as virtio-blk (device detected and initialized, but packet I/O times out)
 
 ### Storage & Filesystem
 - [ ] Implement AHCI SATA driver in device server

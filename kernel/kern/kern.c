@@ -48,6 +48,7 @@ extern void bsd_server_main(void);
 /* Device layer (Phase 3: PCI and Virtio) */
 #include "device/pci.h"
 #include "device/virtio_blk.h"
+#include "device/virtio_net.h"
 
 extern uint8_t __bss_end;
 
@@ -777,6 +778,8 @@ void kernel_main(uint32_t mb_info_phys)
     pci_init();
     virtio_blk_init();
     virtio_blk_test();  /* Run disk I/O test */
+    virtio_net_init();
+    virtio_net_test();  /* Run network test */
 
     /* Enable interrupts and enter the scheduler — never returns */
     sched_run();
