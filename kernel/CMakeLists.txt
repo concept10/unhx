@@ -120,6 +120,13 @@ set(KERNEL_SOURCES
     device/vga_text.c
     device/keyboard.c
     device/ahci.c
+
+    # Phase 5: Display Server and AppKit backend
+    ${CMAKE_CURRENT_SOURCE_DIR}/../frameworks/DisplayServer/display_server.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../frameworks/AppKit-backend/appkit_backend.c
+
+    # Phase 5: Workspace Manager
+    ${CMAKE_CURRENT_SOURCE_DIR}/../user/workspace/workspace.c
 )
 
 if(UNHOX_BOOT_TESTS)
@@ -140,6 +147,7 @@ target_include_directories(unhx.elf PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers
+    ${CMAKE_CURRENT_SOURCE_DIR}/../
 )
 
 target_compile_options(unhx.elf PRIVATE

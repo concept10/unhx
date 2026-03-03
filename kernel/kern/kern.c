@@ -55,6 +55,10 @@ extern void bsd_server_main(void);
 #include "device/keyboard.h"
 #include "device/ahci.h"
 
+/* Phase 5: Display Server and Workspace Manager */
+extern void display_server_main(void);
+extern void workspace_main(void);
+
 extern uint8_t __bss_end;
 
 const uint8_t *g_boot_initrd_data = (const uint8_t *)0;
@@ -679,6 +683,24 @@ void kernel_main(uint32_t mb_info_phys)
         struct thread *th_keyboard = thread_create(ktask, keyboard_echo_thread, 0);
         if (th_keyboard)
             sched_enqueue(th_keyboard);
+
+        /*
+         * Phase 5: Display Server — initialises the compositor, registers
+         * "com.unhox.display" with bootstrap, then enters its IPC receive loop.
+         * Must be started before the workspace manager.
+         */
+        struct thread *th_display = thread_create(ktask, display_server_main, 0);
+        if (th_display)
+            sched_enqueue(th_display);
+
+        /*
+         * Phase 5: Workspace Manager — connects to the display server via
+         * AppKit backend, creates the initial desktop windows, and prints
+         * the milestone v1.0 banner.
+         */
+        struct thread *th_workspace = thread_create(ktask, workspace_main, 0);
+        if (th_workspace)
+            sched_enqueue(th_workspace);
 
         /*
          * Blocking IPC test:
