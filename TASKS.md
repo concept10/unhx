@@ -77,11 +77,11 @@ Check off items as they are completed.
 
 ### Physical Memory ✅
 - [x] Write `kernel/vm/vm_page.c` — physical page frame allocator (free-list, 512 pages)
-- [ ] Parse Multiboot memory map to initialise page allocator *(deferred — uses hardcoded 2–4 MB range)*
+- [x] Parse Multiboot memory map to initialise page allocator *(usable regions parsed from Multiboot map; early allocator clipped to mapped low memory window)*
 
 ### Kernel Heap ✅
 - [x] Write `kernel/kern/kalloc.c` — kernel heap allocator (256 KB bump allocator)
-- [ ] Implement real deallocation *(deferred to Phase 2 — zone-based allocator, kfree is no-op)*
+- [x] Implement real deallocation *(zone-backed allocations now free via `kfree`; static-heap bump allocations remain non-reclaimable by design)*
 
 ### Tasks and Threads ✅
 - [x] Write `kernel/kern/task.c` — task create, terminate, reference counting
@@ -94,7 +94,7 @@ Check off items as they are completed.
 - [x] Write `kernel/vm/vm.c` + `kernel/vm/vm_map.h` — vm_map struct and create
 - [ ] Write `kernel/vm/vm_object.c` — backing memory object lifecycle *(deferred to Phase 2)*
 - [ ] Write `kernel/vm/vm_fault.c` — page fault handler *(deferred — requires IDT)*
-- [ ] Verify: user task runs in its own address space *(deferred — all tasks share kernel space in Phase 1)*
+- [x] Verify: user task runs in its own address space *(per-task PML4 assigned; boot log prints PASS when init CR3 differs from kernel CR3)*
 
 ### IPC ✅
 - [x] Write `kernel/ipc/ipc.c` — port creation/lifecycle + per-task port name space (consolidated `ipc_port` + `ipc_space`)
