@@ -174,7 +174,12 @@ Check off items as they are completed.
 ### Storage & Filesystem
 - [ ] Implement AHCI SATA driver in device server
   - ✅ PCI AHCI controller detection and ABAR discovery (`kernel/device/ahci.c`)
-  - ⚠️  MMIO command engine and port/DMA setup pending (requires VM device mapping)
+  - ✅ MMIO device address mapping via `paging_map()` to kernel VM
+  - ✅ Command engine initialization: command list, FIS, and command table allocation
+  - ✅ Port register setup (CLB, CLBU, FB, FBU pointers)
+  - ✅ AHCI test verify: MMIO read/write, register round-trip (boot log: `[ahci] test PASS`)
+  - ⚠️  Port spinup and device presence detection pending (requires command submission)
+  - ⚠️  DMA and command completion interrupts pending (Phase 3 enhancement)
 - [ ] Implement NVMe driver in device server
 - [ ] Implement ext2 filesystem translator in VFS server
 - [ ] Verify milestone v0.6: boot from disk, read/write files
