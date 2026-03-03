@@ -307,10 +307,30 @@ void ahci_init(void)
                 serial_puthex(ahci_ctrlr.pi);
                 serial_putstr("\r\n");
 
+                /* Enable AHCI mode (GHC.AE bit) */
+                uint32_t ghc = ahci_reg_read(hba, AHCI_REG_GHC);
+                if (!(ghc & GHC_AE)) {
+                    serial_putstr("[ahci] enabling AHCI mode (GHC.AE)\r\n");
+                    ahci_reg_write(hba, AHCI_REG_GHC, ghc | GHC_AE);
+                    ghc = ahci_reg_read(hba, AHCI_REG_GHC);
+                    serial_putstr("[ahci] GHC: ");
+                    serial_puthex(ghc);
+                    serial_putstr("\r\n");
+                } else {
+                    serial_putstr("[ahci] AHCI mode already enabled\r\n");
+                }
+
                 /* Initialize port 0 if implemented. */
                 if (ahci_ctrlr.pi & 0x1) {
                     if (ahci_init_port(&ahci_ctrlr, 0)) {
                         ahci_ctrlr.port_count = 1;
+                        
+                        /* Start the port to enable command processing */
+                        if (ahci_port_start(0) == 0) {
+                            serial_putstr("[ahci] port 0 started successfully\r\n");
+                        } else {
+                            serial_putstr("[ahci] WARN: failed to start port 0\r\n");
+                        }
                     }
                 }
             }
@@ -384,5 +404,539 @@ void ahci_test(void)
     serial_putstr(" (0 is expected if no device, 0x101 if ATA is present)\r\n");
 
     serial_putstr("[ahci] test PASS — MMIO accessible, registers match\r\n");
+    
+    /* Test IDENTIFY DEVICE command */
+    serial_putstr("[ahci] test: issuing IDENTIFY DEVICE command...\r\n");
+    
+    /* Allocate buffer for identify data (512 bytes) */
+    struct vm_page *pg = vm_page_alloc();
+    if (!pg) {
+        serial_putstr("[ahci] test: failed to allocate identify buffer\r\n");
+        return;
+    }
+    uint16_t *identify_buf = (uint16_t *)pg->pg_phys_addr;
+    
+    if (ahci_identify(0, identify_buf) == 0) {
+        /* Parse identify data */
+        /* Word 60-61: Total user addressable sectors for 28-bit commands */
+        uint32_t sectors_28 = identify_buf[60] | ((uint32_t)identify_buf[61] << 16);
+        
+        /* Word 100-103: Total user addressable sectors for 48-bit commands */
+        uint64_t sectors_48 = identify_buf[100] | 
+                             ((uint64_t)identify_buf[101] << 16) |
+                             ((uint64_t)identify_buf[102] << 32) |
+                             ((uint64_t)identify_buf[103] << 48);
+        
+        /* Word 10-19: Serial number (20 ASCII chars, byte-swapped) */
+        char serial[21];
+        for (int i = 0; i < 10; i++) {
+            serial[i*2] = (char)(identify_buf[10+i] >> 8);
+            serial[i*2+1] = (char)(identify_buf[10+i] & 0xFF);
+        }
+        serial[20] = '\0';
+        
+        /* Word 27-46: Model number (40 ASCII chars, byte-swapped) */
+        char model[41];
+        for (int i = 0; i < 20; i++) {
+            model[i*2] = (char)(identify_buf[27+i] >> 8);
+            model[i*2+1] = (char)(identify_buf[27+i] & 0xFF);
+        }
+        model[40] = '\0';
+        
+        serial_putstr("[ahci] test: IDENTIFY successful\r\n");
+        serial_putstr("[ahci]   model: ");
+        serial_putstr(model);
+        serial_putstr("\r\n");
+        serial_putstr("[ahci]   serial: ");
+        serial_putstr(serial);
+        serial_putstr("\r\n");
+        serial_putstr("[ahci]   sectors (28-bit): ");
+        serial_putdec(sectors_28);
+        serial_putstr("\r\n");
+        serial_putstr("[ahci]   sectors (48-bit): ");
+        serial_puthex(sectors_48);
+        serial_putstr("\r\n");
+        
+        uint64_t size_mb = (sectors_48 * 512) / (1024 * 1024);
+        serial_putstr("[ahci]   capacity: ");
+        serial_putdec((uint32_t)size_mb);
+        serial_putstr(" MB\r\n");
+        
+        /* Test read operation */
+        serial_putstr("[ahci] test: reading sector 0...\r\n");
+        
+        struct vm_page *pg2 = vm_page_alloc();
+        if (!pg2) {
+            serial_putstr("[ahci] test: failed to allocate read buffer\r\n");
+            return;
+        }
+        uint8_t *read_buf = (uint8_t *)pg2->pg_phys_addr;
+        
+        if (ahci_read_sectors(0, 0, 1, read_buf) == 0) {
+            serial_putstr("[ahci] test: READ successful\r\n");
+            serial_putstr("[ahci]   first 32 bytes: ");
+            for (int i = 0; i < 32; i++) {
+                if (i > 0 && i % 16 == 0)
+                    serial_putstr(" ");
+                serial_puthex((uint32_t)read_buf[i]);
+                serial_putstr(" ");
+            }
+            serial_putstr("\r\n");
+            
+            /* Check for MBR signature (0x55 0xAA at bytes 510-511) */
+            if (read_buf[510] == 0x55 && read_buf[511] == 0xAA) {
+                serial_putstr("[ahci] test: MBR signature found\r\n");
+            } else {
+                serial_putstr("[ahci] test: no MBR signature (unformatted disk?)\r\n");
+            }
+        } else {
+            serial_putstr("[ahci] test: READ failed\r\n");
+        }
+    } else {
+        serial_putstr("[ahci] test: IDENTIFY failed\r\n");
+    }
+}
+
+/*
+ * ahci_port_stop — stop port command engine
+ *
+ * Must be called before reconfiguring port or shutting down.
+ * Waits for CR (Command List Running) bit to clear.
+ */
+void ahci_port_stop(int port_num)
+{
+    if (!ahci_ctrlr.hba || port_num >= 32 || port_num >= ahci_ctrlr.port_count)
+        return;
+
+    struct ahci_port *port = &ahci_ctrlr.ports[port_num];
+    volatile uint32_t *port_base = port->base;
+
+    /* Clear ST (Start) bit */
+    uint32_t cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+    cmd &= ~CMD_ST;
+    ahci_port_write(port_base, AHCI_PORT_CMD, cmd);
+
+    /* Wait for CR (Command List Running) to clear */
+    int timeout = 500; /* 500ms */
+    while (timeout-- > 0) {
+        cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+        if ((cmd & CMD_CR) == 0)
+            break;
+        /* 1ms delay */
+        for (volatile int i = 0; i < 100000; i++);
+    }
+
+    /* Clear FRE (FIS Receive Enable) */
+    cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+    cmd &= ~CMD_FRE;
+    ahci_port_write(port_base, AHCI_PORT_CMD, cmd);
+
+    /* Wait for FR (FIS Receive Running) to clear */
+    timeout = 500;
+    while (timeout-- > 0) {
+        cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+        if ((cmd & CMD_FR) == 0)
+            break;
+        for (volatile int i = 0; i < 100000; i++);
+    }
+}
+
+/*
+ * ahci_port_start — start port command engine
+ *
+ * Enables FIS receive and command list processing.
+ * Returns 0 on success, -1 on error (timeout or device not ready).
+ */
+int ahci_port_start(int port_num)
+{
+    if (!ahci_ctrlr.hba || port_num >= 32 || port_num >= ahci_ctrlr.port_count) {
+        serial_putstr("[ahci] port_start: invalid port\r\n");
+        return -1;
+    }
+
+    struct ahci_port *port = &ahci_ctrlr.ports[port_num];
+    volatile uint32_t *port_base = port->base;
+
+    /* Wait for device ready: TFD.STS.BSY = 0 and TFD.STS.DRQ = 0 */
+    int timeout = 1000; /* 1 second */
+    while (timeout-- > 0) {
+        uint32_t tfd = ahci_port_read(port_base, AHCI_PORT_TFD);
+        if ((tfd & (TFD_STS_BSY | TFD_STS_DRQ)) == 0)
+            break;
+        for (volatile int i = 0; i < 100000; i++);
+    }
+
+    uint32_t tfd = ahci_port_read(port_base, AHCI_PORT_TFD);
+    if (tfd & (TFD_STS_BSY | TFD_STS_DRQ)) {
+        serial_putstr("[ahci] port_start: device busy (TFD = ");
+        serial_puthex(tfd);
+        serial_putstr(")\r\n");
+        return -1;
+    }
+
+    /* Enable interrupts for command completion */
+    uint32_t ie = 0x1   /* DHRE: D2H Register FIS interrupt */
+                | 0x2   /* PSE: PIO Setup FIS interrupt */
+                | 0x4   /* DSE: DMA Setup FIS interrupt */
+                | 0x20000000; /* TFES: Task File Error Status */
+    ahci_port_write(port_base, AHCI_PORT_IE, ie);
+
+    /* Enable FIS receive */
+    uint32_t cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+    cmd |= CMD_FRE;
+    ahci_port_write(port_base, AHCI_PORT_CMD, cmd);
+
+    /* Wait for FR (FIS Receive Running) to set */
+    timeout = 500;
+    while (timeout-- > 0) {
+        cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+        if (cmd & CMD_FR)
+            break;
+        for (volatile int i = 0; i < 100000; i++);
+    }
+
+    if ((cmd & CMD_FR) == 0) {
+        serial_putstr("[ahci] port_start: FIS receive failed\r\n");
+        return -1;
+    }
+
+    /* Enable command list processing */
+    cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+    cmd |= CMD_ST;
+    ahci_port_write(port_base, AHCI_PORT_CMD, cmd);
+
+    serial_putstr("[ahci] port ");
+    serial_putdec(port_num);
+    serial_putstr(" started (CMD = ");
+    cmd = ahci_port_read(port_base, AHCI_PORT_CMD);
+    serial_puthex(cmd);
+    serial_putstr(")\r\n");
+
+    return 0;
+}
+
+/*
+ * ahci_find_cmdslot — find a free command slot
+ *
+ * Returns slot number (0-31) or -1 if all slots busy.
+ * For Phase 2, we just use slot 0 (single command at a time).
+ */
+static int ahci_find_cmdslot(struct ahci_port *port)
+{
+    uint32_t slots = ahci_port_read(port->base, AHCI_PORT_CI);
+    if (slots & 0x1)
+        return -1;  /* Slot 0 busy */
+    return 0;       /* Use slot 0 */
+}
+
+/*
+ * ahci_wait_command — wait for command completion
+ *
+ * Polls CI (Command Issue) register until the bit for our slot clears.
+ * Also polls interrupt status for completion or error.
+ * Returns 0 on success, -1 on timeout or error.
+ */
+static int ahci_wait_command(struct ahci_port *port, int slot)
+{
+    int timeout = 10000; /* 10 seconds for slow devices */
+    uint32_t slot_bit = 1 << slot;
+
+    while (timeout-- > 0) {
+        /* Check if command slot has been cleared by hardware */
+        uint32_t ci = ahci_port_read(port->base, AHCI_PORT_CI);
+        
+        /* Check interrupt status */
+        uint32_t is = ahci_port_read(port->base, AHCI_PORT_IS);
+        
+        /* Command completed when CI bit clears OR we get D2H Register FIS interrupt */
+        if ((ci & slot_bit) == 0 || (is & 0x1)) {
+            /* Clear interrupt status */
+            if (is)
+                ahci_port_write(port->base, AHCI_PORT_IS, is);
+            
+            /* Check for errors */
+            uint32_t tfd = ahci_port_read(port->base, AHCI_PORT_TFD);
+            if (tfd & TFD_STS_ERR) {
+                serial_putstr("[ahci] command error: TFD = ");
+                serial_puthex(tfd);
+                serial_putstr(", IS = ");
+                serial_puthex(is);
+                serial_putstr("\r\n");
+                return -1;
+            }
+            return 0;
+        }
+        
+        /* 1ms delay */
+        for (volatile int i = 0; i < 100000; i++);
+    }
+
+    serial_putstr("[ahci] command timeout\r\n");
+    serial_putstr("[ahci]   CI  = ");
+    uint32_t ci = ahci_port_read(port->base, AHCI_PORT_CI);
+    serial_puthex(ci);
+    serial_putstr("\r\n[ahci]   IS  = ");
+    uint32_t is = ahci_port_read(port->base, AHCI_PORT_IS);
+    serial_puthex(is);
+    serial_putstr("\r\n[ahci]   TFD = ");
+    uint32_t tfd = ahci_port_read(port->base, AHCI_PORT_TFD);
+    serial_puthex(tfd);
+    serial_putstr("\r\n[ahci]   CMD = ");
+    uint32_t cmd = ahci_port_read(port->base, AHCI_PORT_CMD);
+    serial_puthex(cmd);
+    serial_putstr("\r\n[ahci]   SERR = ");
+    uint32_t serr = ahci_port_read(port->base, AHCI_PORT_SCR_ERR);
+    serial_puthex(serr);
+    serial_putstr("\r\n[ahci]   CLB  = ");
+    uint32_t clb = ahci_port_read(port->base, AHCI_PORT_CLB);
+    serial_puthex(clb);
+    serial_putstr("\r\n[ahci]   FB   = ");
+    uint32_t fb = ahci_port_read(port->base, AHCI_PORT_FB);
+    serial_puthex(fb);
+    serial_putstr("\r\n");
+    return -1;
+}
+
+/*
+ * ahci_identify — issue IDENTIFY DEVICE command
+ *
+ * Retrieves 512 bytes of device information.
+ * buf must be at least 512 bytes and physically contiguous.
+ * Returns 0 on success, -1 on error.
+ */
+int ahci_identify(int port_num, uint16_t *buf)
+{
+    if (!ahci_ctrlr.hba || port_num >= ahci_ctrlr.port_count) {
+        serial_putstr("[ahci] identify: invalid port\r\n");
+        return -1;
+    }
+
+    struct ahci_port *port = &ahci_ctrlr.ports[port_num];
+    
+    int slot = ahci_find_cmdslot(port);
+    if (slot < 0) {
+        serial_putstr("[ahci] identify: no free command slot\r\n");
+        return -1;
+    }
+
+    /* Build command header */
+    struct ahci_cmd_hdr *hdr = &port->cmd_list[slot];
+    hdr->flags = sizeof(struct fis_reg_h2d) / 4; /* FIS length in DW (5) */
+    hdr->flags |= (1 << 7); /* P (Prefetchable) - set for PIO DATA-IN */
+    hdr->flags |= (0 << 5); /* Device port multiplier = 0 */
+    hdr->prdtl = 1;         /* One PRD entry */
+    hdr->prdbc = 0;
+
+    /* Build command table */
+    struct ahci_cmd_tbl *tbl = port->cmd_tbl; /* We only have one */
+    kmemset(tbl, 0, sizeof(*tbl));
+
+    /* Build Register H2D FIS manually to avoid bitfield issues */
+    uint8_t *fis = tbl->cfis;
+    fis[0] = FIS_TYPE_REG_H2D;  /* FIS type */
+    fis[1] = 0x80;              /* Bit 7 = 1 (Command register update), PMPort = 0 */
+    fis[2] = ATA_CMD_IDENTIFY;  /* Command */
+    fis[3] = 0;                 /* Features (7:0) */
+    fis[4] = 0;                 /* LBA (7:0) */
+    fis[5] = 0;                 /* LBA (15:8) */
+    fis[6] = 0;                 /* LBA (23:16) */
+    fis[7] = 0;                 /* Device */
+    fis[8] = 0;                 /* LBA (31:24) */
+    fis[9] = 0;                 /* LBA (39:32) */
+    fis[10] = 0;                /* LBA (47:40) */
+    fis[11] = 0;                /* Features (15:8) */
+    fis[12] = 1;                /* Count (7:0) - 1 sector */
+    fis[13] = 0;                /* Count (15:8) */
+    fis[14] = 0;                /* Reserved */
+    fis[15] = 0;                /* Control */
+    /* Bytes 16-19 are reserved */
+
+    /* Build PRD entry */
+    tbl->prdt[0].dba = (uint32_t)(uint64_t)buf;
+    tbl->prdt[0].dbau = (uint32_t)((uint64_t)buf >> 32);
+    tbl->prdt[0].dbc = 511; /* Byte count - 1, must be odd */
+    tbl->prdt[0].dbc |= (1U << 31); /* Interrupt on completion */
+
+    /* Debug: show command header setup */
+    serial_putstr("[ahci] issuing IDENTIFY: slot=");
+    serial_putdec(slot);
+    serial_putstr(", hdr.flags=");
+    serial_puthex(hdr->flags);
+    serial_putstr(", hdr.prdtl=");
+    serial_putdec(hdr->prdtl);
+    serial_putstr(", hdr.ctba=");
+    serial_puthex(hdr->ctba);
+    serial_putstr(", fis[2]=");
+    serial_puthex(fis[2]);
+    serial_putstr("\r\n");
+
+    /* Clear any pending interrupts */
+    uint32_t is = ahci_port_read(port->base, AHCI_PORT_IS);
+    if (is) {
+        ahci_port_write(port->base, AHCI_PORT_IS, is);
+    }
+
+    /* Issue command */
+    ahci_port_write(port->base, AHCI_PORT_CI, 1 << slot);
+
+    /* Wait for completion */
+    if (ahci_wait_command(port, slot) < 0) {
+        serial_putstr("[ahci] identify: command failed\r\n");
+        return -1;
+    }
+
+    serial_putstr("[ahci] identify: success\r\n");
+    return 0;
+}
+
+/*
+ * ahci_read_sectors — read sectors from disk
+ *
+ * Uses READ DMA EXT (48-bit LBA) command.
+ * buf must be physically contiguous.
+ * Returns 0 on success, -1 on error.
+ */
+int ahci_read_sectors(int port_num, uint64_t lba, uint16_t count, void *buf)
+{
+    if (!ahci_ctrlr.hba || port_num >= ahci_ctrlr.port_count) {
+        serial_putstr("[ahci] read: invalid port\r\n");
+        return -1;
+    }
+
+    if (count == 0 || count > 256) {
+        serial_putstr("[ahci] read: invalid count\r\n");
+        return -1;
+    }
+
+    struct ahci_port *port = &ahci_ctrlr.ports[port_num];
+    
+    int slot = ahci_find_cmdslot(port);
+    if (slot < 0) {
+        serial_putstr("[ahci] read: no free command slot\r\n");
+        return -1;
+    }
+
+    /* Build command header */
+    struct ahci_cmd_hdr *hdr = &port->cmd_list[slot];
+    hdr->flags = sizeof(struct fis_reg_h2d) / 4; /* FIS length in DW */
+    hdr->flags |= (0 << 5);     /* Device port multiplier = 0 */
+    hdr->prdtl = 1;             /* One PRD entry */
+    hdr->prdbc = 0;
+
+    /* Build command table */
+    struct ahci_cmd_tbl *tbl = port->cmd_tbl;
+    kmemset(tbl, 0, sizeof(*tbl));
+
+    /* Build Register H2D FIS */
+    struct fis_reg_h2d *fis = (struct fis_reg_h2d *)tbl->cfis;
+    fis->fis_type = FIS_TYPE_REG_H2D;
+    fis->c = 1;             /* Command */
+    fis->command = ATA_CMD_READ_DMA_EX;
+
+    /* 48-bit LBA */
+    fis->lba0 = (uint8_t)(lba & 0xFF);
+    fis->lba1 = (uint8_t)((lba >> 8) & 0xFF);
+    fis->lba2 = (uint8_t)((lba >> 16) & 0xFF);
+    fis->lba3 = (uint8_t)((lba >> 24) & 0xFF);
+    fis->lba4 = (uint8_t)((lba >> 32) & 0xFF);
+    fis->lba5 = (uint8_t)((lba >> 40) & 0xFF);
+    fis->device = 1 << 6;   /* LBA mode */
+
+    /* Sector count */
+    fis->countl = (uint8_t)(count & 0xFF);
+    fis->counth = (uint8_t)((count >> 8) & 0xFF);
+
+    /* Build PRD entry */
+    uint32_t bytes = count * 512;
+    tbl->prdt[0].dba = (uint32_t)(uint64_t)buf;
+    tbl->prdt[0].dbau = (uint32_t)((uint64_t)buf >> 32);
+    tbl->prdt[0].dbc = (bytes - 1) | (1U << 31); /* Byte count - 1, with IOC bit */
+
+    /* Issue command */
+    ahci_port_write(port->base, AHCI_PORT_CI, 1 << slot);
+
+    /* Wait for completion */
+    if (ahci_wait_command(port, slot) < 0) {
+        serial_putstr("[ahci] read: command failed\r\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * ahci_write_sectors — write sectors to disk
+ *
+ * Uses WRITE DMA EXT (48-bit LBA) command.
+ * buf must be physically contiguous.
+ * Returns 0 on success, -1 on error.
+ */
+int ahci_write_sectors(int port_num, uint64_t lba, uint16_t count, const void *buf)
+{
+    if (!ahci_ctrlr.hba || port_num >= ahci_ctrlr.port_count) {
+        serial_putstr("[ahci] write: invalid port\r\n");
+        return -1;
+    }
+
+    if (count == 0 || count > 256) {
+        serial_putstr("[ahci] write: invalid count\r\n");
+        return -1;
+    }
+
+    struct ahci_port *port = &ahci_ctrlr.ports[port_num];
+    
+    int slot = ahci_find_cmdslot(port);
+    if (slot < 0) {
+        serial_putstr("[ahci] write: no free command slot\r\n");
+        return -1;
+    }
+
+    /* Build command header */
+    struct ahci_cmd_hdr *hdr = &port->cmd_list[slot];
+    hdr->flags = sizeof(struct fis_reg_h2d) / 4; /* FIS length in DW */
+    hdr->flags |= (1 << 6); /* Write (host → device) */
+    hdr->flags |= (0 << 5); /* Device port multiplier = 0 */
+    hdr->prdtl = 1;         /* One PRD entry */
+    hdr->prdbc = 0;
+
+    /* Build command table */
+    struct ahci_cmd_tbl *tbl = port->cmd_tbl;
+    kmemset(tbl, 0, sizeof(*tbl));
+
+    /* Build Register H2D FIS */
+    struct fis_reg_h2d *fis = (struct fis_reg_h2d *)tbl->cfis;
+    fis->fis_type = FIS_TYPE_REG_H2D;
+    fis->c = 1;             /* Command */
+    fis->command = ATA_CMD_WRITE_DMA_EX;
+
+    /* 48-bit LBA */
+    fis->lba0 = (uint8_t)(lba & 0xFF);
+    fis->lba1 = (uint8_t)((lba >> 8) & 0xFF);
+    fis->lba2 = (uint8_t)((lba >> 16) & 0xFF);
+    fis->lba3 = (uint8_t)((lba >> 24) & 0xFF);
+    fis->lba4 = (uint8_t)((lba >> 32) & 0xFF);
+    fis->lba5 = (uint8_t)((lba >> 40) & 0xFF);
+    fis->device = 1 << 6;   /* LBA mode */
+
+    /* Sector count */
+    fis->countl = (uint8_t)(count & 0xFF);
+    fis->counth = (uint8_t)((count >> 8) & 0xFF);
+
+    /* Build PRD entry */
+    uint32_t bytes = count * 512;
+    tbl->prdt[0].dba = (uint32_t)(uint64_t)buf;
+    tbl->prdt[0].dbau = (uint32_t)((uint64_t)buf >> 32);
+    tbl->prdt[0].dbc = (bytes - 1) | (1U << 31); /* Byte count - 1, with IOC bit */
+
+    /* Issue command */
+    ahci_port_write(port->base, AHCI_PORT_CI, 1 << slot);
+
+    /* Wait for completion */
+    if (ahci_wait_command(port, slot) < 0) {
+        serial_putstr("[ahci] write: command failed\r\n");
+        return -1;
+    }
+
+    return 0;
 }
 

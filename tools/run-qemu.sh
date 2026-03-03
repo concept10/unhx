@@ -31,6 +31,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${REPO_ROOT}/build"
 KERNEL_IMG="${BUILD_DIR}/kernel/unhx.elf"
 INITRD_IMG="${BUILD_DIR}/user/init.elf"
+DISK_IMG="${REPO_ROOT}/disks/disk0.img"
 
 DO_BUILD=1
 FORCE_TCG=0
@@ -89,6 +90,14 @@ fi
 # ---------------------------------------------------------------------------
 # Launch QEMU
 # ---------------------------------------------------------------------------
+
+# Create disk image if it doesn't exist
+if [[ ! -f "${DISK_IMG}" ]]; then
+    echo "[run-qemu] Creating disk image at ${DISK_IMG} ..."
+    mkdir -p "$(dirname "${DISK_IMG}")"
+    dd if=/dev/zero of="${DISK_IMG}" bs=1M count=128 2>&1 | tail -1
+fi
+
 echo "[run-qemu] Launching QEMU ..."
 echo "[run-qemu] Serial output on stdio | GDB stub on localhost:1234"
 echo "[run-qemu] Press Ctrl-A X to quit QEMU"
@@ -100,6 +109,9 @@ exec qemu-system-x86_64 \
     -m 256M \
     -kernel "${KERNEL_IMG}" \
     -initrd "${INITRD_IMG}" \
+    -drive id=disk0,file="${DISK_IMG}",if=none,format=raw \
+    -device ahci,id=ahci0 \
+    -device ide-hd,drive=disk0,bus=ahci0.0 \
     -serial stdio \
     -display none \
     -no-reboot \

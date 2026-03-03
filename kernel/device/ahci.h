@@ -63,6 +63,59 @@
 #define CMD_FR              0x00004000  /* FIS Receive Running */
 #define CMD_CR              0x00008000  /* Command List Running */
 
+/* Task File Data (TFD) flags */
+#define TFD_STS_BSY         0x80        /* Busy */
+#define TFD_STS_DRQ         0x08        /* Data transfer requested */
+#define TFD_STS_ERR         0x01        /* Error */
+
+/* SATA Signature values */
+#define AHCI_SIG_ATA        0x00000101  /* SATA drive */
+#define AHCI_SIG_ATAPI      0xEB140101  /* ATAPI drive (CD/DVD) */
+#define AHCI_SIG_SEMB       0xC33C0101  /* Enclosure management bridge */
+#define AHCI_SIG_PM         0x96690101  /* Port multiplier */
+
+/* FIS Types */
+#define FIS_TYPE_REG_H2D    0x27        /* Register FIS - host to device */
+#define FIS_TYPE_REG_D2H    0x34        /* Register FIS - device to host */
+#define FIS_TYPE_DMA_ACT    0x39        /* DMA activate FIS */
+#define FIS_TYPE_DMA_SETUP  0x41        /* DMA setup FIS */
+#define FIS_TYPE_DATA       0x46        /* Data FIS */
+#define FIS_TYPE_BIST       0x58        /* BIST activate FIS */
+#define FIS_TYPE_PIO_SETUP  0x5F        /* PIO setup FIS */
+#define FIS_TYPE_DEV_BITS   0xA1        /* Set device bits FIS */
+
+/* ATA Commands */
+#define ATA_CMD_READ_DMA_EX     0x25
+#define ATA_CMD_WRITE_DMA_EX    0x35
+#define ATA_CMD_IDENTIFY        0xEC
+
+/* Register FIS - Host to Device */
+struct fis_reg_h2d {
+    uint8_t fis_type;           /* FIS_TYPE_REG_H2D */
+    uint8_t pmport:4;           /* Port multiplier */
+    uint8_t rsv0:3;             /* Reserved */
+    uint8_t c:1;                /* 1: Command, 0: Control */
+    uint8_t command;            /* Command register */
+    uint8_t featurel;           /* Feature register, 7:0 */
+
+    uint8_t lba0;               /* LBA low register, 7:0 */
+    uint8_t lba1;               /* LBA mid register, 15:8 */
+    uint8_t lba2;               /* LBA high register, 23:16 */
+    uint8_t device;             /* Device register */
+
+    uint8_t lba3;               /* LBA register, 31:24 */
+    uint8_t lba4;               /* LBA register, 39:32 */
+    uint8_t lba5;               /* LBA register, 47:40 */
+    uint8_t featureh;           /* Feature register, 15:8 */
+
+    uint8_t countl;             /* Count register, 7:0 */
+    uint8_t counth;             /* Count register, 15:8 */
+    uint8_t icc;                /* Isochronous command completion */
+    uint8_t control;            /* Control register */
+
+    uint8_t rsv1[4];            /* Reserved */
+} __attribute__((packed));
+
 /* ----- Command Structure ----- */
 
 /* Command Header: 32 bytes per command */
@@ -110,5 +163,32 @@ void ahci_init(void);
 
 /* Test function: verify basic command engine setup. */
 void ahci_test(void);
+
+/* Start the AHCI port: enable FIS receive and command engine. */
+int ahci_port_start(int port_num);
+
+/* Stop the AHCI port: disable command engine and FIS receive. */
+void ahci_port_stop(int port_num);
+
+/* Issue ATA IDENTIFY command to get device info. */
+int ahci_identify(int port_num, uint16_t *buf);
+
+/* Read sectors from disk.
+ * port_num: AHCI port (0-31)
+ * lba: logical block address
+ * count: number of 512-byte sectors
+ * buf: destination buffer (must be physically contiguous)
+ * Returns 0 on success, -1 on error.
+ */
+int ahci_read_sectors(int port_num, uint64_t lba, uint16_t count, void *buf);
+
+/* Write sectors to disk.
+ * port_num: AHCI port (0-31)
+ * lba: logical block address
+ * count: number of 512-byte sectors
+ * buf: source buffer (must be physically contiguous)
+ * Returns 0 on success, -1 on error.
+ */
+int ahci_write_sectors(int port_num, uint64_t lba, uint16_t count, const void *buf);
 
 #endif /* AHCI_H */
