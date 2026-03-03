@@ -111,6 +111,10 @@ set(KERNEL_SOURCES
 
     # BSD server (Phase 2)
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/bsd_server.c
+
+    # Device layer (Phase 3: PCI, Virtio)
+    device/pci.c
+    device/virtio_blk.c
 )
 
 if(UNHOX_BOOT_TESTS)

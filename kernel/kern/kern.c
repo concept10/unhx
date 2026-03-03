@@ -45,6 +45,10 @@ extern void serial_putstr(const char *s);
 extern void vfs_server_main(void);
 extern void bsd_server_main(void);
 
+/* Device layer (Phase 3: PCI and Virtio) */
+#include "device/pci.h"
+#include "device/virtio_blk.h"
+
 extern uint8_t __bss_end;
 
 const uint8_t *g_boot_initrd_data = (const uint8_t *)0;
@@ -767,6 +771,12 @@ void kernel_main(uint32_t mb_info_phys)
             serial_putstr("[UNHOX] no Multiboot module found — skipping userspace\r\n");
         }
     }
+
+    /* Initialize device layer (Phase 3: PCI and Virtio) */
+    serial_putstr("[UNHOX] initialising device layer...\r\n");
+    pci_init();
+    virtio_blk_init();
+    virtio_blk_test();  /* Run disk I/O test */
 
     /* Enable interrupts and enter the scheduler — never returns */
     sched_run();
