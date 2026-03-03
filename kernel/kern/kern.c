@@ -806,6 +806,7 @@ void kernel_main(uint32_t mb_info_phys)
     virtio_net_init();
     virtio_net_test();  /* Run network test */
     ahci_init();
+    ahci_test();                /* Test AHCI command engine (verify MMIO mapping) */
     fb_test();                  /* Run framebuffer test (draws test pattern) */
     vga_test();                 /* Run VGA text mode test */
     keyboard_test();
