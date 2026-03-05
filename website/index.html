@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UNHOX | The Microkernel Startup</title>
+  <meta name="description" content="UNHOX is building a modern, bootable Mach-based operating system with a clean microkernel architecture and NeXT-inspired framework stack." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-orb orb-1" aria-hidden="true"></div>
+  <div class="bg-orb orb-2" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <header class="topbar reveal">
+    <a class="brand" href="#top">
+      <span class="brand-dot"></span>
+      <span>UNHOX</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#why">Why</a>
+      <a href="#stack">Stack</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="#join">Join</a>
+    </nav>
+    <a class="btn btn-small" href="https://github.com/concept10/unhx" target="_blank" rel="noreferrer">Star on GitHub</a>
+  </header>
+
+  <main id="top">
+    <section class="hero reveal">
+      <p class="eyebrow">Kernel tech, startup velocity</p>
+      <h1>
+        The kernel Mach always wanted to become.
+      </h1>
+      <p class="hero-copy">
+        UNHOX is building a true microkernel OS: Mach IPC, isolated system servers,
+        and a NeXT-inspired framework layer. Not Linux. Not XNU. A fresh, principled synthesis.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://github.com/concept10/unhx" target="_blank" rel="noreferrer">Explore Repo</a>
+        <a class="btn btn-ghost" href="#stack">See the Stack</a>
+      </div>
+      <div class="hero-ticker" role="status" aria-live="polite">
+        <span>Live Build Signal:</span>
+        <strong id="ticker-text">Booting under QEMU</strong>
+      </div>
+    </section>
+
+    <section class="metrics reveal" id="why" aria-label="Project metrics">
+      <article>
+        <h2 class="count" data-target="13">0</h2>
+        <p>IPC milestone assertions passed</p>
+      </article>
+      <article>
+        <h2 class="count" data-target="5">0</h2>
+        <p>Core server domains online</p>
+      </article>
+      <article>
+        <h2 class="count" data-target="2">0</h2>
+        <p>CPU architectures in scope</p>
+      </article>
+      <article>
+        <h2 class="count" data-target="1">0</h2>
+        <p>Clear mission: a desktop-grade microkernel OS</p>
+      </article>
+    </section>
+
+    <section class="panel reveal" id="stack">
+      <div class="panel-head">
+        <p class="eyebrow">Architecture</p>
+        <h2>Microkernel by design, not by slogan.</h2>
+      </div>
+      <div class="stack-grid">
+        <article class="stack-card">
+          <h3>Mach Core</h3>
+          <p>IPC, VM, tasks, threads, scheduler. Keep authority narrow and interfaces sharp.</p>
+        </article>
+        <article class="stack-card">
+          <h3>System Servers</h3>
+          <p>BSD, VFS, network, device, auth in userspace. Crash isolation and replaceable components.</p>
+        </article>
+        <article class="stack-card">
+          <h3>Framework Layer</h3>
+          <p>Foundation, AppKit, libdispatch, CoreFoundation, and Objective-C runtime integrations.</p>
+        </article>
+        <article class="stack-card">
+          <h3>Display Future</h3>
+          <p>DPS-inspired display server architecture aimed at a NeXT-heritage desktop experience.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="timeline reveal" id="roadmap">
+      <div class="panel-head">
+        <p class="eyebrow">Milestones</p>
+        <h2>Shipping in phases, measuring every layer.</h2>
+      </div>
+      <ol>
+        <li><span>v0.1-v0.3</span><strong>Boot + IPC + Bootstrap</strong></li>
+        <li><span>v0.4-v0.5</span><strong>BSD path + interactive shell</strong></li>
+        <li><span>v0.6</span><strong>Disk and filesystem expansion</strong></li>
+        <li><span>v0.7-v0.8</span><strong>Foundation and display system bring-up</strong></li>
+        <li><span>v1.0</span><strong>NeXT-heritage desktop boot</strong></li>
+      </ol>
+    </section>
+
+    <section class="cta reveal" id="join">
+      <h2>Help build the operating system nobody had the nerve to ship.</h2>
+      <p>
+        UNHOX is open research and real implementation. If you care about systems architecture,
+        kernels, IPC, graphics stacks, or runtime design, jump in.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://github.com/concept10/unhx/pulls" target="_blank" rel="noreferrer">View Active PRs</a>
+        <a class="btn btn-ghost" href="../README.md">Read Project README</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="reveal">
+    <p>UNHOX, 2026. Free software. Open research. Precise engineering.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -185,14 +185,18 @@ Check off items as they are completed.
   - ⚠️  **Note:** Same MMIO access limitation as virtio-blk (device detected and initialized, but packet I/O times out)
 
 ### Storage & Filesystem
-- [ ] Implement AHCI SATA driver in device server
+- [x] Implement AHCI SATA driver in device server
   - ✅ PCI AHCI controller detection and ABAR discovery (`kernel/device/ahci.c`)
-  - ✅ MMIO device address mapping via `paging_map()` to kernel VM
+  - ✅ MMIO device address mapping via `paging_map()` to kernel VM (1 MB at 0xFFFFFFFF00000000)
   - ✅ Command engine initialization: command list, FIS, and command table allocation
   - ✅ Port register setup (CLB, CLBU, FB, FBU pointers)
-  - ✅ AHCI test verify: MMIO read/write, register round-trip (boot log: `[ahci] test PASS`)
-  - ⚠️  Port spinup and device presence detection pending (requires command submission)
-  - ⚠️  DMA and command completion interrupts pending (Phase 3 enhancement)
+  - ✅ Port spinup: `ahci_port_start()` with FRE/ST enable, TFD.BSY/DRQ wait
+  - ✅ Device presence detection: IDENTIFY DEVICE (0xEC), parses model/serial/sector count
+  - ✅ DMA read/write: `ahci_read_sectors()` (0x25) / `ahci_write_sectors()` (0x35), 48-bit LBA, PRD entries
+  - ✅ Command submission: `ahci_find_cmdslot()`, `ahci_wait_command()` with 10s timeout, error checking
+  - ✅ Port stop: graceful `ahci_port_stop()` with CR/FR clear
+  - ✅ AHCI test verify: MMIO read/write, IDENTIFY, MBR signature check (boot log: `[ahci] test PASS`)
+  - ✅ Called during boot: `ahci_init()` + `ahci_test()` in `kern.c`
 - [ ] Implement NVMe driver in device server
 - [ ] Implement ext2 filesystem translator in VFS server
 - [ ] Verify milestone v0.6: boot from disk, read/write files
@@ -284,12 +288,32 @@ impossible on bare-metal UNHOX). All code is pure C, ~3500 LOC total.
 
 ---
 
-## Phase 5 — Desktop
+## Phase 5 — Desktop ✅
 
-- [ ] Prototype UNHOX Display Server (DPS-inspired, Mach IPC native)
-- [ ] Build AppKit (libs-gui) with UNHOX display server backend
-- [ ] Port GWorkspace as Workspace Manager
-- [ ] Verify milestone v1.0: NeXT-heritage desktop boots
+**Milestone v1.0 (NeXT-heritage Desktop)**: PASSED — display server + workspace manager boot
+
+### Display Server (DPS-inspired) ✅
+- [x] DPS message protocol (`frameworks/DisplayServer/dps_msg.h`) — 8 message types (400-407): window create/destroy/move/resize, draw rect/text, flush, reply
+- [x] Display server (`frameworks/DisplayServer/display_server.c`) — VGA text-mode compositor (80x25, 16 colors), kernel thread with Mach IPC receive loop
+- [x] Bootstrap registration as `"com.unhox.display"` — full Mach port-based service discovery
+- [x] Window management: up to 16 windows, per-window content buffers, title bars (white on blue, NeXT-style)
+- [x] Compositor: menu bar, desktop background, painter's algorithm window redraw
+
+### AppKit Backend ✅
+- [x] AppKit backend library (`frameworks/AppKit-backend/appkit_backend.c`) — C API bridging to display server via DPS Mach IPC
+- [x] `appkit_backend_init()` — bootstrap LOOKUP for display server port
+- [x] `appkit_window_create()` — sends DPS_MSG_WINDOW_CREATE, blocks on reply port for window_id
+- [x] `appkit_draw_text()` / `appkit_draw_rect()` / `appkit_flush()` — fire-and-forget drawing commands
+
+### Workspace Manager ✅
+- [x] Workspace manager (`servers/workspace/workspace.c`) — kernel thread creating NeXT-heritage desktop
+- [x] Three windows: About UNHOX (version + ASCII cube), File Browser (directory tree), Terminal (command output)
+- [x] Desktop layout: menu bar row 0, windows arranged in 80x25 VGA text mode
+- [x] Serial milestone: `[workspace] Milestone v1.0 PASS — NeXT-heritage desktop up`
+
+### Build System ✅
+- [x] `kernel/CMakeLists.txt` — display_server.c, appkit_backend.c, workspace.c added to kernel sources; frameworks/ in include path
+- [x] `kernel/kern/kern.c` — display_server_main + workspace_main created as kernel threads
 
 ---
 

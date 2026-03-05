@@ -97,6 +97,12 @@ void pic_unmask(uint8_t irq)
     if (irq < 8) {
         port = PIC1_DATA;
     } else {
+        /* Slave PIC IRQs require the cascade line (IRQ2) on the master */
+        uint8_t master_mask = inb(PIC1_DATA);
+        if (master_mask & (1 << IRQ_CASCADE)) {
+            master_mask &= ~(1 << IRQ_CASCADE);
+            outb(PIC1_DATA, master_mask);
+        }
         port = PIC2_DATA;
         irq -= 8;
     }

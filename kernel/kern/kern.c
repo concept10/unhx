@@ -54,6 +54,11 @@ extern void bsd_server_main(void);
 #include "device/vga_text.h"
 #include "device/keyboard.h"
 #include "device/ahci.h"
+#include "device/mouse.h"
+
+/* Display server + Workspace manager (Phase 5) */
+extern void display_server_main(void);
+extern void workspace_main(void);
 
 extern uint8_t __bss_end;
 
@@ -681,6 +686,23 @@ void kernel_main(uint32_t mb_info_phys)
             sched_enqueue(th_keyboard);
 
         /*
+         * Display server (Phase 5): DPS-inspired compositor over VGA text mode.
+         * Allocates a Mach port, registers as "com.unhox.display" with bootstrap,
+         * then enters an IPC receive loop handling window/draw/flush commands.
+         */
+        struct thread *th_display = thread_create(ktask, display_server_main, 0);
+        if (th_display)
+            sched_enqueue(th_display);
+
+        /*
+         * Workspace manager (Phase 5): creates the NeXT-heritage desktop.
+         * Waits for display server, creates windows via AppKit backend IPC.
+         */
+        struct thread *th_workspace = thread_create(ktask, workspace_main, 0);
+        if (th_workspace)
+            sched_enqueue(th_workspace);
+
+        /*
          * Blocking IPC test:
          * Thread "receiver" blocks on receive, thread "sender" sends after delay.
          */
@@ -799,6 +821,7 @@ void kernel_main(uint32_t mb_info_phys)
     serial_putstr("[UNHOX] initialising device layer...\r\n");
         vga_init();                 /* Initialize VGA text mode */
         keyboard_init();            /* IRQ1 keyboard input */
+        mouse_init();               /* IRQ12 PS/2 mouse */
     pci_init();
         fb_init(mb_info_phys);      /* Initialize framebuffer from multiboot info */
     virtio_blk_init();

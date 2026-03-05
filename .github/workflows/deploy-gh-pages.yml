@@ -1,0 +1,42 @@
+name: Deploy Marketing Site to gh-pages
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - website/**
+      - .github/workflows/deploy-gh-pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify site directory exists
+        run: |
+          test -d website
+          test -f website/index.html
+
+      - name: Add .nojekyll marker
+        run: touch website/.nojekyll
+
+      - name: Deploy website to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./website
+          publish_branch: gh-pages
+          force_orphan: true

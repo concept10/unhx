@@ -64,10 +64,17 @@ char serial_getchar(void)
     return (char)inb(COM1_PORT);
 }
 
+/* Boot log capture hook (defined in display_server.c, weak-linked) */
+extern void bootlog_putchar(char c) __attribute__((weak));
+
 void serial_putstr(const char *s)
 {
-    while (*s)
-        serial_putchar(*s++);
+    while (*s) {
+        serial_putchar(*s);
+        if (bootlog_putchar)
+            bootlog_putchar(*s);
+        s++;
+    }
 }
 
 /* -------------------------------------------------------------------------
