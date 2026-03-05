@@ -43,11 +43,32 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# Detect llvm-ar (needed for creating static libraries with ELF objects)
+# ---------------------------------------------------------------------------
+if(EXISTS "/opt/homebrew/opt/llvm/bin/llvm-ar")
+    set(LLVM_AR "/opt/homebrew/opt/llvm/bin/llvm-ar")
+elseif(EXISTS "/usr/local/opt/llvm/bin/llvm-ar")
+    set(LLVM_AR "/usr/local/opt/llvm/bin/llvm-ar")
+else()
+    find_program(LLVM_AR llvm-ar REQUIRED)
+endif()
+
+if(EXISTS "/opt/homebrew/opt/llvm/bin/llvm-ranlib")
+    set(LLVM_RANLIB "/opt/homebrew/opt/llvm/bin/llvm-ranlib")
+elseif(EXISTS "/usr/local/opt/llvm/bin/llvm-ranlib")
+    set(LLVM_RANLIB "/usr/local/opt/llvm/bin/llvm-ranlib")
+else()
+    find_program(LLVM_RANLIB llvm-ranlib REQUIRED)
+endif()
+
+# ---------------------------------------------------------------------------
 # Set compilers
 # ---------------------------------------------------------------------------
 set(CMAKE_C_COMPILER   "${LLVM_CLANG}")
 set(CMAKE_ASM_COMPILER "${LLVM_CLANG}")
 set(CMAKE_LINKER       "${LLD_LINKER}")
+set(CMAKE_AR           "${LLVM_AR}")
+set(CMAKE_RANLIB       "${LLVM_RANLIB}")
 
 set(CMAKE_C_COMPILER_TARGET   "x86_64-unknown-elf")
 set(CMAKE_ASM_COMPILER_TARGET "x86_64-unknown-elf")
@@ -77,7 +98,7 @@ set(CMAKE_ASM_FLAGS_INIT "--target=x86_64-unknown-elf")
 # <TARGET>       = output filename
 # <LINK_FLAGS>   = additional link flags
 set(CMAKE_C_LINK_EXECUTABLE
-    "${LLD_LINKER} <LINK_FLAGS> <OBJECTS> -o <TARGET>"
+    "${LLD_LINKER} <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>"
 )
 
 # Don't search for host programs/libraries (cross-compile mode)

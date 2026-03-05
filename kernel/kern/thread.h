@@ -162,6 +162,21 @@ extern void user_entry_trampoline(void);
 /* Assembly routine for returning to user space from a forked child. */
 extern void fork_child_return(void);
 
+/* Assembly trampoline for user threads with an argument (Phase 4). */
+extern void user_entry_trampoline_arg(void);
+
+/*
+ * thread_create_user_with_arg — create a ring-3 user thread with an argument.
+ *
+ * Like thread_create_user, but also passes `arg` in RDI to the entry function
+ * via R14 on the initial stack frame.  user_entry_trampoline_arg loads R14
+ * into RDI before iretq.
+ */
+struct thread *thread_create_user_with_arg(struct task *task,
+                                            uint64_t user_entry,
+                                            uint64_t user_rsp,
+                                            uint64_t arg);
+
 /*
  * thread_create_fork_child — create a user thread for a fork() child process.
  *

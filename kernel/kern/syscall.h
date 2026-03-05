@@ -25,6 +25,11 @@
 #define SYS_FORK        4
 #define SYS_EXEC        5
 #define SYS_WAIT        6
+#define SYS_MACH_MSG_SEND  7
+#define SYS_MACH_MSG_RECV  8
+#define SYS_THREAD_CREATE  9
+#define SYS_SBRK          10
+#define SYS_PORT_ALLOC    11
 
 struct interrupt_frame;
 

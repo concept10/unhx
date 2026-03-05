@@ -28,6 +28,11 @@ add_subdirectory(kernel)
 add_subdirectory(user)
 
 # ---------------------------------------------------------------------------
+# Framework layer (Phase 4) — ObjC runtime, Foundation, libdispatch
+# ---------------------------------------------------------------------------
+add_subdirectory(frameworks)
+
+# ---------------------------------------------------------------------------
 # Userspace servers (Phase 3+)
 # ---------------------------------------------------------------------------
 # add_subdirectory(servers/bootstrap)

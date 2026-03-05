@@ -17,10 +17,18 @@
 #include "kern.h"
 #include "elf.h"
 #include "bsd/bsd_msg.h"
+#include "ipc/ipc.h"
+#include "ipc/ipc_kmsg.h"
+#include "ipc/ipc_mqueue.h"
+#include "vm/vm_map.h"
+#include "klib.h"
 
 extern void serial_putstr(const char *s);
 extern void serial_putchar(char c);
 extern char serial_getchar(void);
+
+/* User heap base address — above the 0x400000 text/data region */
+#define USER_HEAP_BASE  0x600000
 
 /* -------------------------------------------------------------------------
  * SYS_WRITE — write a string to the serial console.
@@ -203,8 +211,241 @@ static int64_t sys_wait(struct interrupt_frame *frame)
 }
 
 /* -------------------------------------------------------------------------
+ * SYS_MACH_MSG_SEND — send a Mach message to a port.
+ *
+ * RDI = pointer to message buffer (user address, starts with mach_msg_header_t)
+ * RSI = message size in bytes
+ * RDX = destination port name (overrides msgh_remote_port in header)
+ *
+ * Returns 0 on success, -1 on error.
+ * ------------------------------------------------------------------------- */
+
+static int64_t sys_mach_msg_send(struct interrupt_frame *frame)
+{
+    const void *user_msg = (const void *)frame->rdi;
+    uint64_t msg_size = frame->rsi;
+    mach_port_name_t dest_name = (mach_port_name_t)frame->rdx;
+
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return -1;
+
+    if (!user_msg || msg_size < sizeof(mach_msg_header_t) || msg_size > 1024)
+        return -1;
+
+    /* Copy message from userspace into a kernel buffer */
+    uint8_t kbuf[1024];
+    kmemcpy(kbuf, user_msg, msg_size);
+
+    /* Set the destination port name from the explicit argument */
+    mach_msg_header_t *hdr = (mach_msg_header_t *)kbuf;
+    hdr->msgh_remote_port = dest_name;
+    hdr->msgh_size = (mach_msg_size_t)msg_size;
+
+    kern_return_t kr = mach_msg_send(th->th_task, hdr, (mach_msg_size_t)msg_size);
+    return (kr == KERN_SUCCESS) ? 0 : -1;
+}
+
+/* -------------------------------------------------------------------------
+ * SYS_MACH_MSG_RECV — receive a Mach message from a port (blocking).
+ *
+ * RDI = port name (must hold RECEIVE right)
+ * RSI = pointer to user buffer
+ * RDX = buffer size
+ *
+ * Returns bytes received on success, -1 on error.
+ * ------------------------------------------------------------------------- */
+
+static int64_t sys_mach_msg_recv(struct interrupt_frame *frame)
+{
+    mach_port_name_t port_name = (mach_port_name_t)frame->rdi;
+    void *user_buf = (void *)frame->rsi;
+    uint64_t buf_size = frame->rdx;
+
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return -1;
+
+    if (!user_buf || buf_size == 0 || buf_size > 1024)
+        return -1;
+
+    struct task *task = th->th_task;
+    struct ipc_space *space = task->t_ipc_space;
+    if (!space)
+        return -1;
+
+    /* Look up the port */
+    ipc_space_lock(space);
+    struct ipc_entry *entry = ipc_space_lookup(space, port_name);
+    if (!entry || !(entry->ie_bits & IE_BITS_RECEIVE)) {
+        ipc_space_unlock(space);
+        return -1;
+    }
+    struct ipc_port *port = entry->ie_object;
+    ipc_space_unlock(space);
+
+    if (!port || !port->ip_messages)
+        return -1;
+
+    /* Blocking receive directly on the mqueue */
+    uint8_t kbuf[1024];
+    mach_msg_size_t out_size = 0;
+    mach_msg_return_t mr = ipc_mqueue_receive(port->ip_messages,
+                                               kbuf, (mach_msg_size_t)buf_size,
+                                               &out_size, 1 /* blocking */);
+    if (mr != MACH_MSG_SUCCESS)
+        return -1;
+
+    /* Copy to userspace */
+    mach_msg_size_t copy_size = out_size;
+    if (copy_size > buf_size)
+        copy_size = (mach_msg_size_t)buf_size;
+    kmemcpy(user_buf, kbuf, copy_size);
+
+    return (int64_t)out_size;
+}
+
+/* -------------------------------------------------------------------------
+ * SYS_THREAD_CREATE — create a new user thread in the current task.
+ *
+ * RDI = entry point (user virtual address)
+ * RSI = argument (passed as first parameter to entry)
+ * RDX = stack pointer (0 = kernel allocates a 16 KB stack)
+ *
+ * Returns thread ID on success, -1 on error.
+ * ------------------------------------------------------------------------- */
+
+static int64_t sys_thread_create(struct interrupt_frame *frame)
+{
+    uint64_t entry_point = frame->rdi;
+    uint64_t arg = frame->rsi;
+    uint64_t stack_ptr = frame->rdx;
+
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return -1;
+
+    struct task *task = th->th_task;
+
+    /* If no stack provided, allocate a 16 KB user stack */
+    if (stack_ptr == 0) {
+        /* Use a high address region for thread stacks */
+        static uint64_t next_stack_addr = 0x7F000000;
+        uint64_t stack_size = 16 * 1024;
+        uint64_t stack_base = next_stack_addr - stack_size;
+        next_stack_addr -= stack_size + 4096; /* guard page gap */
+
+        kern_return_t kr = vm_map_enter(task->t_map, stack_base, stack_size,
+                                         VM_PROT_READ | VM_PROT_WRITE);
+        if (kr != KERN_SUCCESS)
+            return -1;
+
+        stack_ptr = stack_base + stack_size; /* stack grows down */
+    }
+
+    struct thread *new_th = thread_create_user_with_arg(task, entry_point,
+                                                         stack_ptr, arg);
+    if (!new_th)
+        return -1;
+
+    sched_enqueue(new_th);
+    return (int64_t)new_th->th_id;
+}
+
+/* -------------------------------------------------------------------------
+ * SYS_SBRK — adjust the program break (heap end).
+ *
+ * RDI = increment in bytes (0 = query current break)
+ *
+ * Returns the previous break address on success, -1 on error.
+ * ------------------------------------------------------------------------- */
+
+static int64_t sys_sbrk(struct interrupt_frame *frame)
+{
+    int64_t increment = (int64_t)frame->rdi;
+
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return -1;
+
+    struct task *task = th->th_task;
+
+    /* Initialize heap on first use */
+    if (task->t_brk == 0) {
+        task->t_brk_base = USER_HEAP_BASE;
+        task->t_brk = USER_HEAP_BASE;
+    }
+
+    uint64_t old_brk = task->t_brk;
+
+    if (increment == 0)
+        return (int64_t)old_brk;
+
+    if (increment < 0)
+        return -1; /* shrinking not supported */
+
+    /* Round up to page size for vm_map_enter */
+    uint64_t alloc_base = old_brk;
+    uint64_t alloc_size = ((uint64_t)increment + 4095) & ~4095ULL;
+
+    kern_return_t kr = vm_map_enter(task->t_map, alloc_base, alloc_size,
+                                     VM_PROT_READ | VM_PROT_WRITE);
+    if (kr != KERN_SUCCESS)
+        return -1;
+
+    task->t_brk = alloc_base + alloc_size;
+    return (int64_t)old_brk;
+}
+
+/* -------------------------------------------------------------------------
+ * SYS_PORT_ALLOC — allocate a new Mach port in the current task.
+ *
+ * No arguments.
+ *
+ * Returns the port name on success, -1 on error.
+ * Grants the caller both SEND and RECEIVE rights.
+ * ------------------------------------------------------------------------- */
+
+static int64_t sys_port_alloc(struct interrupt_frame *frame)
+{
+    (void)frame;
+
+    struct thread *th = sched_current();
+    if (!th || !th->th_task)
+        return -1;
+
+    struct task *task = th->th_task;
+
+    /* Allocate a kernel port object */
+    struct ipc_port *port = ipc_port_alloc(task);
+    if (!port)
+        return -1;
+
+    /* Allocate a name in the task's IPC space */
+    struct ipc_space *space = task->t_ipc_space;
+    ipc_space_lock(space);
+
+    mach_port_name_t name;
+    kern_return_t kr = ipc_space_alloc_name(space, &name);
+    if (kr != KERN_SUCCESS) {
+        ipc_space_unlock(space);
+        ipc_port_destroy(port);
+        return -1;
+    }
+
+    /* Install the port with both SEND and RECEIVE rights */
+    struct ipc_entry *entry = &space->is_table[name];
+    entry->ie_object = port;
+    entry->ie_bits = IE_BITS_SEND | IE_BITS_RECEIVE;
+
+    ipc_space_unlock(space);
+
+    return (int64_t)name;
+}
+
+/* -------------------------------------------------------------------------
  * syscall_dispatch — main system call dispatcher.
- * --------- ------- ------------------------------------------------- */
+ * ------------------------------------------------------------------------- */
 
 void syscall_dispatch(struct interrupt_frame *frame)
 {
@@ -236,8 +477,27 @@ void syscall_dispatch(struct interrupt_frame *frame)
         break;
 
     case SYS_MACH_MSG:
-        /* TODO: implement mach_msg syscall */
-        frame->rax = (uint64_t)-1;
+        frame->rax = (uint64_t)-1; /* reserved for combined send+receive */
+        break;
+
+    case SYS_MACH_MSG_SEND:
+        frame->rax = (uint64_t)sys_mach_msg_send(frame);
+        break;
+
+    case SYS_MACH_MSG_RECV:
+        frame->rax = (uint64_t)sys_mach_msg_recv(frame);
+        break;
+
+    case SYS_THREAD_CREATE:
+        frame->rax = (uint64_t)sys_thread_create(frame);
+        break;
+
+    case SYS_SBRK:
+        frame->rax = (uint64_t)sys_sbrk(frame);
+        break;
+
+    case SYS_PORT_ALLOC:
+        frame->rax = (uint64_t)sys_port_alloc(frame);
         break;
 
     default:

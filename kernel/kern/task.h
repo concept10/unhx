@@ -89,6 +89,13 @@ struct task {
      * Prevents premature destruction while other kernel code holds a pointer.
      */
     uint32_t            t_ref_count;
+
+    /*
+     * t_brk — current program break for the userspace heap.
+     * Managed by SYS_SBRK.  Initial value is t_brk_base.
+     */
+    uint64_t            t_brk;
+    uint64_t            t_brk_base;
 };
 
 /* -------------------------------------------------------------------------

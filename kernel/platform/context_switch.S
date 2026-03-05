@@ -132,6 +132,29 @@ user_entry_trampoline:
     iretq
 
 /* ====================================================================
+ * user_entry_trampoline_arg — iretq into ring 3 with an argument.
+ *
+ * Like user_entry_trampoline, but also loads R14 into RDI so the
+ * user entry function receives an argument.
+ *
+ * On entry from context_switch_asm's `ret`:
+ *   R12 = user entry point (RIP for ring 3)
+ *   R13 = user stack pointer (RSP for ring 3)
+ *   R14 = argument to pass in RDI
+ * ==================================================================== */
+
+    .globl  user_entry_trampoline_arg
+    .type   user_entry_trampoline_arg, @function
+user_entry_trampoline_arg:
+    movq    %r14, %rdi      /* pass arg as first C argument (RDI)        */
+    pushq   $0x23           /* SS  = GDT_SELECTOR_UDATA | RPL=3          */
+    pushq   %r13            /* RSP = user-mode stack pointer              */
+    pushq   $0x202          /* RFLAGS: IF=1, reserved bit 1               */
+    pushq   $0x1B           /* CS  = GDT_SELECTOR_UCODE | RPL=3          */
+    pushq   %r12            /* RIP = user entry point                     */
+    iretq
+
+/* ====================================================================
  * fork_child_return — return from fork in the child process.
  *
  * Called after context_switch_asm's `ret` when a forked child thread

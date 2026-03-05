@@ -18,6 +18,11 @@
 #define SYS_FORK        4
 #define SYS_EXEC        5
 #define SYS_WAIT        6
+#define SYS_MACH_MSG_SEND  7
+#define SYS_MACH_MSG_RECV  8
+#define SYS_THREAD_CREATE  9
+#define SYS_SBRK          10
+#define SYS_PORT_ALLOC    11
 
 static inline long syscall0(long nr)
 {
@@ -86,6 +91,36 @@ static inline void exit(int status)
 {
     syscall2(SYS_EXIT, (long)status, 0);
     for (;;) ;  /* unreachable */
+}
+
+/* Phase 4: Mach IPC, threading, memory, and port syscalls */
+
+static inline long mach_msg_send_syscall(const void *msg, long size, long dest_port)
+{
+    return syscall3(SYS_MACH_MSG_SEND, (long)msg, size, dest_port);
+}
+
+static inline long mach_msg_recv_syscall(long port_name, void *buf, long buf_size)
+{
+    return syscall3(SYS_MACH_MSG_RECV, port_name, (long)buf, buf_size);
+}
+
+static inline long thread_create_syscall(long entry, long arg, long stack)
+{
+    return syscall3(SYS_THREAD_CREATE, entry, arg, stack);
+}
+
+static inline void *sbrk(long increment)
+{
+    long ret = syscall1(SYS_SBRK, increment);
+    if (ret == -1)
+        return (void *)-1;
+    return (void *)ret;
+}
+
+static inline long port_alloc_syscall(void)
+{
+    return syscall0(SYS_PORT_ALLOC);
 }
 
 #endif /* USER_SYSCALL_H */
