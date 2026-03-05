@@ -21,3 +21,6 @@ _codeql_detected_source_root
 *.swo
 *~
 .DS_Store
+
+# tracey
+disk0.img
