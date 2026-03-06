@@ -109,6 +109,19 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 4. **Clean Interfaces Over Premature Optimization** — We do not repeat XNU's mistake.
 5. **Everything Documented** — Every design decision, every source reference is documented.
 
+## Beyond the Desktop
+
+The UNHOX kernel is not limited to desktop use.  The microkernel design enables it to run
+on embedded edge devices, industrial PLC controllers, virtual PLC runtimes, and automotive
+SoCs — the same kernel binary, different servers.
+
+See [docs/use-cases.md](docs/use-cases.md) for:
+- Processor architecture requirements and minimum hardware specs
+- RTOS and real-time applicability
+- PLC runtime and virtual PLC deployment profiles
+- Edge / IoT gateway examples (Raspberry Pi, NXP i.MX, RISC-V)
+- Industrial and automotive platform examples
+
 ## License
 
 - New UNHOX kernel code: **GPL-2.0-or-later**
