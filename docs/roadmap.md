@@ -81,8 +81,31 @@ Full roadmap from the UNHOX Project Proposal.
 
 **Deliverable:** A bootable UNHOX image with a complete NeXT-heritage desktop.
 
+- [ ] UNHOX Display Server (DPS-inspired, Mach IPC native) — RFC-0002
 - [ ] Workspace Manager (GWorkspace-based)
 - [ ] Display PostScript-inspired compositing server
+- [ ] AppKit backend for UNHOX display server
 - [ ] Interface Builder port
 - [ ] Package management
 - [ ] Self-hosting build (UNHOX builds UNHOX)
+
+## Phase 6 — GPU Acceleration
+
+**Deliverable:** Hardware-accelerated desktop at 60 fps.
+
+- [ ] GPU Device Server (Vulkan, AMDGPU/virtio-gpu)
+- [ ] OOL GPU buffer sharing (Mach memory entry ↔ GPU VA)
+- [ ] Vulkan compositor in display server (`VK_KHR_display`)
+- [ ] Explicit GPU fence synchronisation via Mach messages
+
+## Phase 7 — Ray Tracing and AI/ML Inference
+
+**Deliverable:** AI/ML inference service; optional ray-traced compositor features.
+
+- [ ] `servers/inference/` — ONNX Runtime inference Mach port service
+- [ ] Vulkan ray tracing support in GPU device server
+- [ ] AI upscaling pass in compositor (DLSS/FSR-style)
+- [ ] RFC-0003: GPU inference service
+
+See `docs/display-server-architectures.md`, `docs/graphics-pipeline-microkernel.md`,
+and `docs/rfcs/RFC-0002-display-server-architecture.md` for full design context.

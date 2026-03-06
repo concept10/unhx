@@ -172,12 +172,67 @@ Check off items as they are completed.
 
 ---
 
-## Phase 5 — Desktop
+## Phase 5 — Desktop (Display Server v1 — Software Compositor)
 
-- [ ] Prototype UNHOX Display Server (DPS-inspired, Mach IPC native)
-- [ ] Build AppKit (libs-gui) with UNHOX display server backend
+Reference: `docs/rfcs/RFC-0002-display-server-architecture.md`
+
+### Display Server IPC Protocol
+- [x] Write `docs/display-server-architectures.md` — X11, Wayland, DPS, Quartz, Vulkan, DirectX survey
+- [x] Write `docs/graphics-pipeline-microkernel.md` — GPU pipeline, shaders, ray tracing, AI/ML in microkernels
+- [x] Write `docs/rfcs/RFC-0002-display-server-architecture.md` — UNHOX display server RFC
+- [ ] Write `frameworks/DisplayServer/include/display_msg.h` — Mach IPC message definitions (RFC-0002 §IPC Protocol)
+- [ ] Write `frameworks/DisplayServer/client/libdisplay.c` — client-side library (DS_CREATE_WINDOW etc.)
+- [ ] Write `frameworks/DisplayServer/server/ds_main.c` — mach_msg receive dispatch loop
+- [ ] Write `frameworks/DisplayServer/server/ds_window.c` — window registry (create, destroy, z-order)
+- [ ] Write `frameworks/DisplayServer/server/ds_compositor.c` — Porter-Duff software compositor
+- [ ] Write `frameworks/DisplayServer/server/ds_input.c` — keyboard/pointer event routing
+
+### Input Device Server
+- [ ] Write `servers/device/input/` — raw input event server (keyboard, pointer)
+- [ ] Deliver input events to display server via Mach IPC
+
+### AppKit Integration
+- [ ] Write `frameworks/AppKit/backend/unhox/` — UNHOX display server backend for libs-gui
+- [ ] Map NSWindow / NSView / NSEvent to display_msg.h protocol
 - [ ] Port GWorkspace as Workspace Manager
 - [ ] Verify milestone v1.0: NeXT-heritage desktop boots
+
+---
+
+## Phase 6 — GPU Acceleration
+
+Reference: `docs/graphics-pipeline-microkernel.md` §8 (UNHOX GPU Server Design)
+
+### GPU Device Server
+- [ ] Write `servers/device/gpu/` — GPU device server (Mach IPC interface)
+- [ ] Implement GPU VA space management (per-client GPU address space)
+- [ ] Implement command buffer submission (amdgpu / virtio-gpu)
+- [ ] Implement OOL GPU buffer sharing (Mach memory entry ↔ GPU VA)
+- [ ] Implement async GPU fence delivery via Mach messages
+- [ ] Verify: client renders Vulkan triangle; compositor composites it
+
+### Vulkan Compositor
+- [ ] Replace software compositor with Vulkan compute pass
+- [ ] Implement `VK_KHR_display` scanout in display server
+- [ ] Implement explicit sync (GPU fence → Mach message → compositor)
+- [ ] Verify milestone v1.1: hardware-accelerated desktop at 60 fps
+
+---
+
+## Phase 7 — Ray Tracing and AI/ML Inference
+
+Reference: `docs/graphics-pipeline-microkernel.md` §5 and §9
+
+### Ray Tracing
+- [ ] Expose `VK_KHR_ray_tracing_pipeline` via GPU device server
+- [ ] BLAS/TLAS management API in device server
+- [ ] Write `docs/rfcs/RFC-0003-gpu-inference-service.md`
+
+### AI/ML Inference Service
+- [ ] Write `servers/inference/` — ONNX Runtime inference server (Mach port)
+- [ ] Integrate Vulkan EP (or llvmpipe fallback) in inference server
+- [ ] Display server: optional AI upscaling pass (DLSS/FSR-style) in compositor
+- [ ] Verify: inference server responds to Mach IPC requests with model outputs
 
 ---
 
@@ -189,6 +244,9 @@ Check off items as they are completed.
 - [ ] Fuzz testing for IPC message parsing
 
 ### Documentation
+- [x] Write `docs/display-server-architectures.md` — comprehensive display server survey
+- [x] Write `docs/graphics-pipeline-microkernel.md` — GPU pipeline in microkernel context
+- [x] Write `docs/rfcs/RFC-0002-display-server-architecture.md` — display server RFC
 - [ ] Document every design decision in `docs/rfcs/` before implementing
 - [ ] Write historical context for each source in `archive/`
 - [ ] Create contributor guide in `CONTRIBUTING.md`
