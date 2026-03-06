@@ -62,6 +62,20 @@ Client Task                    Server Task
     │<─────────────────────────────│
 ```
 
+## Deployment Scope
+
+The UNHOX kernel is not limited to desktop use.  The microkernel design makes it
+applicable to embedded systems, edge devices, industrial PLCs, virtual PLC runtimes,
+and more — the kernel binary is identical; only the servers launched at boot change.
+
+See [use-cases.md](use-cases.md) for a comprehensive discussion of:
+- Supported and planned processor architectures and minimum hardware requirements
+- RTOS / real-time applicability and what is required
+- PLC runtime and virtual PLC runtime profiles
+- Edge / IoT gateway deployment patterns
+- Platform-specific examples (Raspberry Pi, NXP i.MX, RISC-V, Industrial PC, Automotive SoC)
+- Decision guide for choosing UNHOX vs. other microkernel or RTOS options
+
 ## Source References
 
 - CMU Mach 3.0 design: `archive/cmu-mach/`
