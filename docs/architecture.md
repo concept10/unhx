@@ -3,21 +3,23 @@
 ## Full Software Stack
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│            UNHOX Full Software Stack                        │
-├─────────────────────────────────────────────────────────────┤
-│  Workspace Manager  │  AppKit  │  Display Server (DPS)      │
-├─────────────────────┼──────────┼────────────────────────────┤
-│  Foundation Kit  │  libobjc2  │  libdispatch  │  CoreFnd   │
-├─────────────────────────────────────────────────────────────┤
-│  BSD Server  │  VFS Server  │  Net Server  │  Auth Server  │
-├─────────────────────────────────────────────────────────────┤
-│  Device Server  │  Bootstrap Server  │  Pager Servers       │
-├─────────────────────────────────────────────────────────────┤
-│  MACH MICROKERNEL  (IPC · VM · Tasks · Threads · Sched)    │
-├─────────────────────────────────────────────────────────────┤
-│  Hardware Abstraction  (x86-64 / AArch64)                   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│               UNHOX Full Software Stack                         │
+├─────────────────────────────────────────────────────────────────┤
+│  Workspace Manager  │  AppKit  │  Display Server (DPS)          │
+├─────────────────────┼──────────┼────────────────────────────────┤
+│  Foundation Kit  │  libobjc2  │  libdispatch  │  CoreFoundation │
+├─────────────────────────────────────────────────────────────────┤
+│  AudioUnits framework  │  MIDI Server  │  Audio Server          │
+├─────────────────────────────────────────────────────────────────┤
+│  BSD Server  │  VFS Server  │  Net Server  │  Auth Server       │
+├─────────────────────────────────────────────────────────────────┤
+│  Device Server  │  Bootstrap Server  │  Pager Servers           │
+├─────────────────────────────────────────────────────────────────┤
+│  MACH MICROKERNEL  (IPC · VM · Tasks · Threads · Sched/RT)     │
+├─────────────────────────────────────────────────────────────────┤
+│  Hardware Abstraction  (x86-64 / AArch64)                       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Kernel/Server Split
@@ -36,6 +38,12 @@ UNHOX maintains strict microkernel discipline. The boundary:
 - Device drivers
 - Network stack
 - Authentication/capabilities
+- Audio Server (HAL, graph, RT mixing)
+- MIDI Server (device I/O, event routing)
+
+**Framework layer (frameworks/ directory):**
+- Audio Units (plugin model for effects, instruments, converters)
+- Objective-C runtime, Foundation, AppKit, libdispatch
 
 ## Boot Sequence
 

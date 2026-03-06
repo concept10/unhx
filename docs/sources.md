@@ -47,6 +47,27 @@ licensing information.
 - **libdispatch / CoreFoundation** (Apache-2.0): Permissive. Must retain
   copyright notices and license text.
 
+## Audio Subsystem References (not mirrored)
+
+The following external specifications and documentation are referenced by the
+audio subsystem design (`docs/audio-server-design.md`, RFC-0002) but are not
+included in the repository.
+
+| Reference | URL | License |
+|-----------|-----|---------|
+| Intel HDA Specification Rev 1.0a | Intel developer site | Public specification |
+| USB Audio Class 2.0 specification | usb.org | Public specification |
+| USB MIDI Class 1.0 specification | usb.org | Public specification |
+| virtio-snd specification | virtio-spec §5.14 | Apache-2.0 / public |
+| Apple Core Audio Overview (2004) | developer.apple.com | Reference only |
+| Apple Audio Unit Programming Guide | developer.apple.com | Reference only |
+| Apple Core MIDI Framework Reference | developer.apple.com | Reference only |
+
+No code from Apple's Core Audio, Core MIDI, or Audio Unit implementations is
+copied into UNHOX.  These documents are consulted only for API design
+inspiration.  The UNHOX Audio Server, MIDI Server, and Audio Units framework
+are original implementations using Mach IPC as their sole transport.
+
 ## UNHOX Original Code
 
 All original UNHOX code (kernel, servers, build system, documentation) is

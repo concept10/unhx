@@ -172,7 +172,165 @@ Check off items as they are completed.
 
 ---
 
-## Phase 5 — Desktop
+## Phase 5 — Audio Subsystem
+
+Design reference: `docs/rfcs/RFC-0002-audio-subsystem.md` and
+`docs/audio-server-design.md`.
+
+### Kernel — Real-Time Scheduling (`SCHED_RT`)
+
+These are the only kernel changes the audio subsystem requires.
+
+- [ ] Add `sched_policy_t`, `th_rt_period`, `th_rt_computation`,
+      `th_rt_deadline` fields to `struct thread` in `kernel/kern/kern.h`
+- [ ] Implement `SCHED_RT` run queue in `kernel/kern/sched.c`
+  - Fixed-priority, preemptive; fires when thread period elapses
+  - Preempts all `SCHED_NORMAL` threads immediately
+- [ ] Add RT preemption to the scheduler tick handler (platform timer interrupt)
+- [ ] Add priority inheritance in `kernel/ipc/ipc_mqueue.c` — when an
+      `SCHED_RT` thread blocks on a port receive, propagate its priority to
+      the port's owner thread
+- [ ] Add `thread_set_rt_policy(thread, period, computation, deadline)` kernel
+      call, accessible via `mach_msg` to the kernel task port
+- [ ] Write unit test: create two threads at SCHED_RT and SCHED_NORMAL;
+      verify RT thread runs first and meets its deadline
+- [ ] Reference: OSF MK6 `kern/sched_prim.c`; Mach 3.0 Kernel Principles §6.3
+
+### Device Server — Audio Hardware Drivers
+
+- [ ] Enumerate PCI audio devices in `servers/device/` using PCI class 0x04
+      (Multimedia Controller)
+- [ ] Implement Intel HDA (High Definition Audio) codec driver
+  - Stream descriptor setup (BDL — buffer descriptor list)
+  - DMA ring buffer for output and input
+  - IRQ handler via Device Server interrupt port
+  - Expose logical audio I/O ports to the Audio Server
+  - Reference: Intel HDA Specification Rev 1.0a
+- [ ] Implement USB audio class 2.0 driver
+  - Isochronous endpoint scheduling via USB host controller
+  - Sample-rate negotiation via UAC2 control interface
+  - Hot-plug/unplug notification to Audio Server
+  - Reference: USB Audio Class 2.0 specification (usb.org)
+- [ ] Implement USB MIDI class driver
+  - Bulk endpoint polling for MIDI IN; bulk endpoint writes for MIDI OUT
+  - Expose MIDI source and destination ports to MIDI Server
+  - Reference: USB MIDI Class 1.0 specification (usb.org)
+- [ ] Implement virtio-sound driver for QEMU development testing
+  - virtio-snd specification: virtio spec §5.14
+  - Allows full audio stack testing without real hardware
+- [ ] Write integration test: open HDA output from Device Server, write a
+      440 Hz sine wave, verify no xruns
+
+### MIDI Server (`servers/midi/`)
+
+- [ ] Scaffold `servers/midi/` with `CMakeLists.txt` (userspace, links Mach stubs)
+- [ ] Implement `midi_server.c` — main event loop; register
+      `com.unhox.midi.server` with Bootstrap Server
+- [ ] Implement `midi_device.c` — query Device Server for USB MIDI devices;
+      create source/destination port pairs per physical port
+- [ ] Implement `midi_uart.c` — legacy MPU-401 UART MIDI driver (for x86
+      ISA MIDI port at 0x330); polling thread at `SCHED_NORMAL`
+- [ ] Implement `midi_virtual.c` — virtual MIDI endpoint creation and teardown;
+      any task can create a virtual source or destination
+- [ ] Implement `midi_route.c` — routing table: source port → set of
+      destination ports; timestamped event forwarding
+  - Message ID range: 8300–8499 (see RFC-0002 §Message ID Ranges)
+- [ ] Write `servers/midi/midi_mig.h` — all MIDI Server message structs
+- [ ] Write unit test: create two virtual endpoints; send 100 MIDI note-on
+      events; verify all arrive with correct timestamps
+- [ ] Write unit test: route one source to three destinations; verify all
+      three receive each event exactly once
+- [ ] Verify milestone: USB MIDI keyboard events appear on a virtual
+      destination port connected to a software synthesizer
+
+### Audio Server (`servers/audio/`)
+
+- [ ] Scaffold `servers/audio/` with `CMakeLists.txt`
+- [ ] Implement `audio_server.c` — main(): register `com.unhox.audio.server`
+      with Bootstrap Server; spawn management thread and RT I/O thread
+- [ ] Implement `audio_device.c` — enumerate audio devices from Device Server;
+      maintain logical device table; handle hot-plug notifications
+- [ ] Implement `audio_session.c` — per-client session management:
+  - `AUDIO_OP_OPEN_OUTPUT` (msg 8101): allocate stream port, OOL buffer region,
+    reply with `stream_port`, `buffer_port`, `actual_frames`
+  - `AUDIO_OP_OPEN_INPUT` (msg 8103): microphone / capture stream
+  - `AUDIO_OP_CLOSE` (msg 8102): tear down session, reclaim buffer memory
+- [ ] Implement `audio_format.c` — format negotiation (sample rate, channel
+      count, bit depth); auto-insert `AU_TYPE_FORMAT_CONVERTER` nodes for
+      mismatched streams
+- [ ] Implement `audio_graph.c` — directed acyclic graph of Audio Unit nodes:
+  - `graph_add_node` (msg 8201): instantiate an AU task; connect its ports
+  - `graph_remove_node` (msg 8202): send `MACH_NOTIFY_NO_SENDERS` cleanup
+  - `graph_connect` (msg 8203): connect output bus of one AU to input of another
+  - `graph_disconnect` (msg 8204)
+  - `graph_start` (msg 8205) / `graph_stop` (msg 8206)
+  - Topological sort (Kahn's algorithm) for render order
+- [ ] Implement `audio_rt.c` — `SCHED_RT` I/O thread:
+  - Period = hardware buffer duration (e.g. 2.67 ms at 128 frames / 48 kHz)
+  - Walk topological order; send `au_render_request` (msg 8501) to each node
+  - Collect `au_render_reply`; timeout = period − safety margin (500 µs)
+  - On timeout: insert silence for that node; increment xrun counter
+  - Push final mix buffer to Device Server via HDA/USB stream port
+- [ ] Write `servers/audio/audio_mig.h` — all Audio Server message structs
+      (IDs 8000–8299)
+- [ ] Write integration test: open output stream; write 1 s of 440 Hz sine
+      wave via stream port; verify audio reaches Device Server with no xruns
+- [ ] Benchmark: measure IPC latency at 128-frame / 48 kHz buffer (target < 1 ms
+      end-to-end from RT thread wake to Device Server DMA submit)
+- [ ] Verify milestone: Audio Server renders a two-node graph (sine AU →
+      output AU) continuously for 10 s under QEMU with virtio-sound; zero xruns
+
+### Audio Units Framework (`frameworks/AudioUnits/`)
+
+- [ ] Scaffold `frameworks/AudioUnits/` with `CMakeLists.txt`
+- [ ] Write `frameworks/AudioUnits/include/AudioUnit.h`:
+  - AU type constants (`AU_TYPE_OUTPUT`, `AU_TYPE_MIXER`, `AU_TYPE_EFFECT`,
+    `AU_TYPE_INSTRUMENT`, `AU_TYPE_FORMAT_CONVERTER`)
+  - Render protocol structs (`au_render_request`, `au_render_reply`)
+  - Scope and parameter types (`AU_SCOPE_GLOBAL`, `AU_SCOPE_INPUT`, …)
+- [ ] Write `frameworks/AudioUnits/include/AUGraph.h` — client-side graph
+      construction API (wraps Audio Server IPC, msg IDs 8200–8299)
+- [ ] Write `frameworks/AudioUnits/include/MusicDevice.h` — instrument AU
+      extensions: MIDI note-on/off, pitch bend, CC delivery
+- [ ] Implement `AudioUnitBase.c` — boilerplate for third-party AU authors:
+  - Port registration with Bootstrap Server
+  - Default render loop (receives `au_render_request`, calls user callback,
+    sends `au_render_reply`)
+  - Default MIDI event receive loop (dispatches to user MIDI callback)
+  - Default control parameter get/set (msg IDs 8700–8799)
+- [ ] Implement `AUGraph.c` — client-side graph builder:
+  - `AUGraphOpen()` — connect to Audio Server, get graph port
+  - `AUGraphAddNode()` — `graph_add_node` IPC call
+  - `AUGraphConnectNodeInput()` — `graph_connect` IPC call
+  - `AUGraphStart()` / `AUGraphStop()`
+- [ ] Implement system Audio Units (in-process, trusted):
+  - `system/AUMixer.c` — N-channel mixer; float32 summing loop
+  - `system/AUSampleRateConverter.c` — linear/sinc SRC (reference quality)
+  - `system/AUOutput.c` — writes to Audio Server stream port
+- [ ] Write unit test: instantiate a sine-wave generator AU; render 1024
+      frames; verify output matches expected waveform to within −80 dB THD
+- [ ] Write unit test: connect sine AU → EQ effect AU → mixer AU → output AU;
+      render 1 s; verify signal flows end-to-end without distortion
+- [ ] Write example program `tools/audio-test/sine_graph.c`:
+  - Opens an output stream via Audio Server
+  - Creates a two-node AUGraph (sine instrument → output)
+  - Plays for 5 s then closes cleanly
+  - Used as a smoke test for the full audio stack
+
+### Documentation
+
+- [x] Write `docs/rfcs/RFC-0002-audio-subsystem.md` — audio architecture RFC
+- [x] Write `docs/audio-server-design.md` — comprehensive design document
+- [x] Update `docs/architecture.md` — add audio/MIDI tier to stack diagram
+- [ ] Write `servers/audio/README.md` — Audio Server overview and build instructions
+- [ ] Write `servers/midi/README.md` — MIDI Server overview and build instructions
+- [ ] Write `frameworks/AudioUnits/README.md` — AU framework usage guide
+- [ ] Document SCHED_RT kernel interface in `docs/rfcs/RFC-0003-rt-scheduling.md`
+- [ ] Document HDA driver design in `docs/rfcs/RFC-0004-hda-driver.md`
+
+---
+
+## Phase 6 — Desktop
 
 - [ ] Prototype UNHOX Display Server (DPS-inspired, Mach IPC native)
 - [ ] Build AppKit (libs-gui) with UNHOX display server backend
