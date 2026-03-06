@@ -174,9 +174,34 @@ Check off items as they are completed.
 
 ## Phase 5 — Desktop
 
-- [ ] Prototype UNHOX Display Server (DPS-inspired, Mach IPC native)
+### IPC Gate Conditions for Display Server (Phase A)
+- [ ] Implement OOL memory descriptor support (`kernel/ipc/ipc_kmsg.c`, `kernel/vm/vm_map.c`)
+- [ ] Implement port right transfer in messages (`kernel/ipc/ipc_kmsg.c`, `kernel/ipc/ipc_right.c`)
+- [ ] Implement blocking receive with timeout (`kernel/ipc/ipc_mqueue.c`, `kernel/kern/thread.c`)
+- [ ] Implement bootstrap server port lookup (`servers/bootstrap/`)
+- [ ] Write `tests/ipc/ipc_ool_test.c` — OOL buffer send/receive test
+- [ ] Write `tests/ipc/ipc_port_transfer_test.c` — port right transfer test
+- [ ] Write `tests/ipc/ipc_timeout_test.c` — receive-with-timeout test
+
+### Core Display Server (Phase B)
+- [ ] Create `servers/display/core/` — `unhx-display` main loop
+- [ ] Implement surface management (OOL buffer allocation, window list)
+- [ ] Implement software compositor (CPU blit of client surfaces to framebuffer)
+- [ ] Implement framebuffer output via device server
+- [ ] Implement `libdisplay.a` client library (`display_connect`, `surface_create`, `surface_commit`)
+- [ ] Write minimal AppKit test application using `libdisplay.a`
+- [ ] Verify milestone v0.8: a window appears on screen
+
+### Compatibility Personalities (Phase C)
+- [ ] Implement X11 personality server (`servers/display/x11/`)
+- [ ] Test X11 client (`xterm`) via X11 personality
+- [ ] Implement Wayland personality server (`servers/display/wayland/`)
+- [ ] Test Wayland client (`weston-terminal`) via Wayland personality
+
+### Full Desktop (Phase D)
 - [ ] Build AppKit (libs-gui) with UNHOX display server backend
 - [ ] Port GWorkspace as Workspace Manager
+- [ ] GPU-accelerated compositor path in `unhx-display`
 - [ ] Verify milestone v1.0: NeXT-heritage desktop boots
 
 ---
