@@ -19,7 +19,8 @@
 #include "tests/ipc_test.h"
 #endif
 
-/* Serial output (platform layer) */
+/* Serial output and platform initialisation (platform layer) */
+extern void platform_init(void);
 extern void serial_putstr(const char *s);
 
 /* Bootstrap server entry (Phase 1: kernel-internal) */
@@ -36,6 +37,8 @@ void kern_init(void)
 
 void kernel_main(void)
 {
+    platform_init();
+
     serial_putstr("\r\n");
     serial_putstr("================================================\r\n");
     serial_putstr("  UNHOX — U Is Not Hurd Or X\r\n");
@@ -95,5 +98,9 @@ void kernel_main(void)
     /* Halt — preemptive scheduler loop goes here in Phase 2 */
     serial_putstr("\r\n[UNHOX] halting (cooperative scheduling only in Phase 1)\r\n");
     for (;;)
+#if defined(__aarch64__)
+        __asm__ volatile ("wfi");
+#else
         __asm__ volatile ("hlt");
+#endif
 }

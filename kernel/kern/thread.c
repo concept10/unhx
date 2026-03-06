@@ -31,27 +31,32 @@ static struct thread *thread_pool_alloc(void)
  * thread_entry_trampoline — wrapper that calls the thread's entry point.
  *
  * When a new thread is first scheduled, context_switch_asm restores its
- * saved state.  We set up RIP to point here, with the real entry_point
- * stored in R12 (a callee-saved register preserved across the switch).
+ * saved state.  The real entry_point is stashed in a callee-saved register
+ * (R12 on x86-64, x19 on AArch64) so the trampoline can retrieve it after
+ * the context switch.
  *
  * This trampoline exists so that if the entry function returns, we can
  * cleanly halt the thread rather than crashing.
  */
 static void thread_entry_trampoline(void)
 {
-    /*
-     * The real entry point was stashed in R12 by thread_create().
-     * We extract it via inline assembly and call it.
-     */
     void (*entry)(void);
+#if defined(__aarch64__)
+    __asm__ volatile ("mov %0, x19" : "=r"(entry));
+#else
     __asm__ volatile ("movq %%r12, %0" : "=r"(entry));
+#endif
 
     if (entry)
         entry();
 
     /* If the entry function returns, halt the thread */
     for (;;)
+#if defined(__aarch64__)
+        __asm__ volatile ("wfi");
+#else
         __asm__ volatile ("hlt");
+#endif
 }
 
 struct thread *thread_create(struct task *task,
@@ -87,13 +92,35 @@ struct thread *thread_create(struct task *task,
      * Set up the initial CPU state so that when the scheduler first
      * switches to this thread, it begins executing at the trampoline.
      *
-     * We store the real entry_point in R12 (callee-saved) so the
-     * trampoline can retrieve it after the context switch.
-     *
-     * The stack must be 16-byte aligned per the System V AMD64 ABI.
-     * We subtract 8 to account for the "return address" that would
-     * normally be pushed by a CALL instruction — the context switch
-     * uses RET to jump to th_cpu_state.rip, which simulates a call.
+     * The real entry_point is stored in a callee-saved register
+     * (R12 on x86-64, x19 on AArch64) so the trampoline can retrieve it
+     * after the context switch restores that register.
+     */
+#if defined(__aarch64__)
+    /*
+     * AArch64: stack must be 16-byte aligned (AAPCS64 §6.2.2).
+     * pc is the resume address — context_switch_asm restores it to x30
+     * (lr) and returns via `ret`, jumping to thread_entry_trampoline.
+     */
+    th->th_cpu_state.sp  = th->th_stack_top & ~0xFULL;
+    th->th_cpu_state.pc  = (uint64_t)(uintptr_t)thread_entry_trampoline;
+    th->th_cpu_state.fp  = 0;
+    th->th_cpu_state.x19 = (uint64_t)(uintptr_t)entry_point;
+    th->th_cpu_state.x20 = 0;
+    th->th_cpu_state.x21 = 0;
+    th->th_cpu_state.x22 = 0;
+    th->th_cpu_state.x23 = 0;
+    th->th_cpu_state.x24 = 0;
+    th->th_cpu_state.x25 = 0;
+    th->th_cpu_state.x26 = 0;
+    th->th_cpu_state.x27 = 0;
+    th->th_cpu_state.x28 = 0;
+#else
+    /*
+     * x86-64: the stack must be 16-byte aligned just before the CALL that
+     * invokes thread_entry_trampoline.  We subtract 8 to account for the
+     * return address that CALL would push.  context_switch_asm simulates
+     * a CALL by jumping through the saved RIP.
      */
     th->th_cpu_state.rsp = th->th_stack_top & ~0xFULL;  /* align to 16 */
     th->th_cpu_state.rsp -= 8;  /* simulate call alignment */
@@ -104,6 +131,7 @@ struct thread *thread_create(struct task *task,
     th->th_cpu_state.r13 = 0;
     th->th_cpu_state.r14 = 0;
     th->th_cpu_state.r15 = 0;
+#endif
 
     /* Scheduler defaults */
     th->th_priority = 10;       /* default mid-range priority */
