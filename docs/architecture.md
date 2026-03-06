@@ -68,3 +68,5 @@ Client Task                    Server Task
 - OSF MK extensions: `archive/osf-mk/`
 - HURD server model: https://git.savannah.gnu.org/git/hurd/hurd.git
 - XNU reference: https://github.com/apple-oss-distributions/xnu
+- Display server survey: `docs/display-server-survey.md`
+- Display server RFC: `docs/rfcs/RFC-0002-display-server-alternatives.md`

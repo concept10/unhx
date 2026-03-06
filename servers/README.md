@@ -14,6 +14,7 @@ primitives lives in userspace servers communicating via Mach IPC.
 | `device/`     | Hardware device abstraction and driver management |
 | `network/`    | TCP/IP network stack (lwIP or picoTCP initially) |
 | `auth/`       | Capability-based authentication (port right delegation) |
+| `display/`    | Display server — Mach-IPC-native compositor with X11/Wayland personalities |
 
 ## Design Notes
 
