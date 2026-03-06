@@ -21,6 +21,11 @@ on:
   pull_request:
     branches: [main]
 
+# Limit GITHUB_TOKEN to the minimum permissions needed:
+#   contents: read  — allows actions/checkout to clone the repo
+permissions:
+  contents: read
+
 jobs:
   boot-test-x86_64:
     name: Boot Test (x86-64)
