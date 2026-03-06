@@ -16,9 +16,10 @@ static struct thread *run_queue_tail = (void *)0;
 static struct thread *current_thread = (void *)0;
 
 /* -------------------------------------------------------------------------
- * I/O port helpers (for PIT timer setup)
+ * I/O port helpers (for PIT timer setup — x86-64 only)
  * ------------------------------------------------------------------------- */
 
+#if !defined(__aarch64__)
 static inline void outb(unsigned short port, unsigned char val)
 {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
@@ -65,6 +66,7 @@ static void pit_init(void)
      * TODO (Phase 2): Set up IDT entry for IRQ 0, PIC init, STI.
      */
 }
+#endif /* !__aarch64__ */
 
 /* -------------------------------------------------------------------------
  * Scheduler implementation
@@ -76,7 +78,9 @@ void sched_init(void)
     run_queue_tail = (void *)0;
     current_thread = (void *)0;
 
+#if !defined(__aarch64__)
     pit_init();
+#endif
 }
 
 void sched_enqueue(struct thread *th)

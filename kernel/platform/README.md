@@ -22,11 +22,12 @@ Hardware Abstraction Layer (HAL) for UNHOX kernel.
 
 ## AArch64 Bring-up Plan (Phase 2)
 
-- [ ] EFI / device tree boot entry
+- [x] EFI / QEMU virt boot entry (`aarch64/boot.S`)
+- [x] PL011 UART for console output (`aarch64/platform.c`)
+- [x] Cooperative context switch (`aarch64/context_switch.S`)
 - [ ] MMU initialization (4-level translation tables)
 - [ ] `pmap.c` — AArch64 physical map
 - [ ] GIC interrupt controller
-- [ ] PL011 UART for console output
 
 ## References
 
