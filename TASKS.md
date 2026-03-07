@@ -188,6 +188,18 @@ Check off items as they are completed.
 - [ ] Kernel sanitizers: KASAN (address), KUBSAN (undefined behavior)
 - [ ] Fuzz testing for IPC message parsing
 
+### Formal Verification & Correctness (see RFC-0002)
+- [ ] Layer 1 — expand `kernel/tests/ipc_test.c`; add `tests/unit/ipc/` suite
+- [ ] Layer 1 — QEMU integration tests: boot, IPC round-trip, VM isolation
+- [ ] Layer 2 — Python/Hypothesis property-based tests for IPC and VM invariants
+- [ ] Layer 3 — TLA+ model of Mach port capability system; run TLC model checker
+- [ ] Layer 3 — SPIN/Promela model of `ipc_mqueue` concurrency; verify deadlock-freedom
+- [ ] Layer 3 — libFuzzer harness for IPC message parsing (ASan + UBSan)
+- [ ] Layer 4 — Isabelle/HOL abstract specification of IPC subsystem
+- [ ] Layer 4 — Refinement proof: abstract spec ↔ C implementation (IPC module)
+- [ ] Layer 4 — Noninterference (information-flow) proof for kernel scheduler + IPC
+- [ ] Layer 4 — VM isolation proof (Phase 4)
+
 ### Documentation
 - [ ] Document every design decision in `docs/rfcs/` before implementing
 - [ ] Write historical context for each source in `archive/`

@@ -43,6 +43,7 @@ Full roadmap from the UNHOX Project Proposal.
 - [ ] Virtual memory — basic maps and objects
 - [ ] Bootstrap server — initial service registration
 - [ ] QEMU test script: boot and print "UNHOX v0.1"
+- [ ] Expand unit tests: `tests/unit/ipc/` for IPC invariants ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 1)
 
 ## Phase 2 — System Servers
 
@@ -54,6 +55,10 @@ Full roadmap from the UNHOX Project Proposal.
 - [ ] Basic device server (keyboard, framebuffer)
 - [ ] Network server (lwIP integration)
 - [ ] Port a minimal shell (e.g., `dash` or `pdksh`)
+- [ ] Property-based tests for IPC/VM (Hypothesis) ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 2)
+- [ ] TLA+ model of port capability system; TLC verification ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 3)
+- [ ] SPIN model of `ipc_mqueue`; deadlock-freedom check ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 3)
+- [ ] libFuzzer IPC harness with ASan/UBSan ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 3)
 
 ## Phase 3 — Driver Layer & Real Hardware
 
@@ -66,6 +71,7 @@ Full roadmap from the UNHOX Project Proposal.
 - [ ] VESA/GOP framebuffer driver
 - [ ] ext2 filesystem translator in VFS server
 - [ ] Boot from disk image
+- [ ] Isabelle/HOL abstract spec + refinement proof for IPC ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 4)
 
 ## Phase 4 — Framework Layer (NeXT Stack)
 
@@ -76,6 +82,7 @@ Full roadmap from the UNHOX Project Proposal.
 - [ ] Port libdispatch with Mach port integration
 - [ ] Minimal display server prototype
 - [ ] AppKit backend for UNHOX display server
+- [ ] VM memory-isolation proof in Isabelle/HOL ([RFC-0002](rfcs/RFC-0002-kernel-verification.md) Layer 4)
 
 ## Phase 5 — Desktop & Full Stack
 
