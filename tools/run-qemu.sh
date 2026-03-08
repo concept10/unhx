@@ -39,6 +39,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TMP_DIR="${REPO_ROOT}/.tmp"
+
+# Create project-local temporary directory for QEMU files
+mkdir -p "${TMP_DIR}"
 
 ARCH="x86_64"
 DO_BUILD=1
@@ -103,6 +107,7 @@ if [[ "$ARCH" == "aarch64" ]]; then
         -serial stdio \
         -display none \
         -no-reboot \
+        -pidfile "${TMP_DIR}/qemu-aarch64.pid" \
         -s
 fi
 
@@ -143,4 +148,5 @@ exec qemu-system-x86_64 \
     -display none \
     -no-reboot \
     -no-shutdown \
+    -pidfile "${TMP_DIR}/qemu-x86_64.pid" \
     -s
