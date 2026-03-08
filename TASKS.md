@@ -317,6 +317,28 @@ These are the only kernel changes the audio subsystem requires.
   - Plays for 5 s then closes cleanly
   - Used as a smoke test for the full audio stack
 
+### Plugin Format Compatibility Bridges
+
+The AU design is structurally equivalent to AUv3 (out-of-process, task-isolated).
+Bridges allow VST, LV2, CLAP, and other format plugins to run as UNHOX AUs.
+See `docs/rfcs/RFC-0005-audio-subsystem.md §Plugin Format Compatibility Bridges`
+for the full architecture.
+
+- [ ] Implement `servers/audio/lv2_bridge/lv2_bridge.c` — LV2 host wrapper (ISC)
+  - `LV2_Descriptor` instantiate → UNHOX AU render loop
+  - Atom event port → `au_midi_event_msg` translation
+- [ ] Implement `servers/audio/clap_bridge/clap_bridge.c` — CLAP wrapper (MIT)
+  - `clap_plugin_t` process → `au_render_request` mapping
+  - CLAP params ↔ `au_set_param_msg`
+- [ ] Implement `servers/audio/vst2_bridge/vst2_bridge.c` — VST2 wrapper
+  - `VSTPluginMain()` → `AEffect` → `processReplacing()` each render period
+  - MIDI events via `au_midi_event_msg`
+- [ ] Implement `servers/audio/vst3_bridge/vst3_bridge.cpp` — VST3 wrapper (optional C++)
+  - `IAudioProcessor::process()` per render request
+  - Enabled by `UNHOX_ENABLE_VST3_BRIDGE` CMake option
+- [ ] Integration test: load LV2 Calf Compressor via bridge; render 1 s; no xruns
+- [ ] Integration test: load CLAP plugin via bridge; verify parameter automation round-trip
+
 ### Documentation
 
 - [x] Write `docs/rfcs/RFC-0005-audio-subsystem.md` — audio architecture RFC
@@ -325,8 +347,8 @@ These are the only kernel changes the audio subsystem requires.
 - [ ] Write `servers/audio/README.md` — Audio Server overview and build instructions
 - [ ] Write `servers/midi/README.md` — MIDI Server overview and build instructions
 - [ ] Write `frameworks/AudioUnits/README.md` — AU framework usage guide
-- [ ] Document SCHED_RT kernel interface in `docs/rfcs/RFC-0003-rt-scheduling.md`
-- [ ] Document HDA driver design in `docs/rfcs/RFC-0004-hda-driver.md`
+- [ ] Open `docs/rfcs/RFC-0006-rt-scheduling.md` — dedicated SCHED_RT kernel RFC
+- [ ] Document HDA driver design in `docs/rfcs/RFC-0007-hda-driver.md`
 
 ---
 

@@ -227,6 +227,161 @@ Unit types:
 Message IDs 8500–8799 are reserved for the Audio Unit render and control
 protocol (see `docs/audio-server-design.md` for full struct definitions).
 
+### Audio Unit Design Lineage and AUv3 Compatibility
+
+The UNHOX Audio Unit model is derived from Apple's Audio Unit plug-in API,
+which has gone through three major versions:
+
+| Version | Era | Hosting model | IPC |
+|---------|-----|---------------|-----|
+| **AU v1** | Mac OS X 10.0–10.1 (2001) | In-process Carbon Component Manager bundle | n/a (direct function call) |
+| **AU v2** | Mac OS X 10.2–macOS 12 (2002–2021) | In-process Core Audio bundle (`AudioComponent`) | n/a (direct function call) |
+| **AU v3** | iOS 9 / macOS 10.11+ (2015–present) | **Out-of-process App Extension**; XPC rendezvous | XPC (Mach IPC layer) |
+
+**UNHOX Audio Units are structurally equivalent to AUv3**, not AU v2:
+
+- Every third-party AU runs in a **separate Mach task** — analogous to the
+  XPC Extension process that hosts an AUv3 plugin on macOS.
+- Communication between the Audio Server and an AU uses Mach messages (OOL
+  buffer render requests), just as macOS uses XPC messages in AUv3 hosting.
+- Crash isolation (`MACH_NOTIFY_NO_SENDERS`) mirrors the process-boundary
+  isolation that macOS AUv3 provides automatically via the XPC sandbox.
+
+The functional differences from AUv3:
+
+- **No App Extensions container**: UNHOX has no `NSExtension` bundle or app
+  store sandboxing.  Plugins are plain Mach tasks registered with the Bootstrap
+  Server under a well-known name (`com.unhox.au.<vendor>.<name>`).
+- **No XPC**: The transport is native Mach IPC rather than XPC (which is just
+  a Mach-based serialisation layer).  This removes one serialisation layer and
+  reduces latency.
+- **AUv3 binary compatibility** is a future goal (see Open Questions §6), not
+  part of this RFC.  A thin AUv3 compatibility wrapper task that bridges
+  `AudioUnitRemote` XPC calls to UNHOX AU Mach IPC is feasible but deferred.
+
+**SCHED_RT as a catalyst for a dedicated kernel RFC.**  The `SCHED_RT`
+real-time scheduling policy (AUDIO-IMP-5) is a first-class kernel feature
+needed not only by audio but by any low-latency server (display vsync,
+networking, real-time control).  Its scope justifies a dedicated RFC rather
+than being a subsection of the audio RFC.  This RFC therefore **explicitly
+recommends that a `RFC-0006-rt-scheduling.md` be opened** covering:
+
+- The `SCHED_RT` / `SCHED_RT_CRITICAL` policy API and `thread_set_rt_policy()`
+  interface (syscall vs. kernel task port message — see Open Questions §3).
+- Priority inheritance protocol through `ipc_mqueue` wakeup paths, with
+  seL4-style MCS (Mixed-Criticality Scheduling) as an optional upgrade path.
+- Deadline-driven scheduling improvements beyond the OSF MK6 triple: EDF
+  (Earliest Deadline First) or CBS (Constant Bandwidth Server) algorithms.
+- Integration with the verification layers defined in PR #15: TLA+ model of
+  the RT scheduler (Layer 3) and Isabelle/HOL proof of priority-inversion
+  freedom (Layer 4).
+
+Until RFC-0006 is opened and accepted, the `SCHED_RT` gate condition
+(AUDIO-IMP-5) is tracked in this RFC's Implementation Checklist §Kernel.
+
+### Plugin Format Compatibility Bridges (VST2, VST3, AAX)
+
+UNHOX Audio Units can host third-party plugins written for other plugin
+formats through **bridge tasks**.  Each bridge is a separate Mach task that:
+
+1. Loads the native plugin binary using the platform dynamic linker.
+2. Exposes a standard UNHOX AU render loop and Mach port set.
+3. Translates between the native plugin SDK calls and the
+   `au_render_request` / `au_midi_event_msg` / `au_set_param_msg` IPC
+   messages defined in §Audio Units above.
+
+This is the same architecture used by REAPER's `reaper_linux_vst_bridge`,
+Wine `vst_bridge`, and macOS Rosetta-based VST bridging in AU hosts.
+
+#### VST2 (Steinberg Virtual Studio Technology 2.x)
+
+VST2 plugins expose a C ABI function table (`AEffect *effect`).  The bridge
+calls `VSTPluginMain()`, allocates an `AEffect`, and wraps it:
+
+```
+┌──────────────────────────────┐
+│  vst2_bridge task             │
+│  ├── dlopen(plugin.vst2.so)  │
+│  ├── AEffect *effect = …     │
+│  ├── processReplacing()      │  ← called each UNHOX AU render request
+│  └── UNHOX AU render loop   │  ← translates mach_msg ↔ VST2 C calls
+└──────────────────────────────┘
+         │  UNHOX AU IPC (8500–8799)
+         ▼
+    Audio Server
+```
+
+File: `servers/audio/vst2_bridge/vst2_bridge.c`
+
+Licensing note: Steinberg VST2 SDK usage is under Steinberg VST2 Free SDK
+licence.  VST2 plugin ABI is frozen; no further updates from Steinberg.
+
+#### VST3 (Steinberg Virtual Studio Technology 3.x)
+
+VST3 plugins use a COM-like C++ interface (`IComponent`, `IAudioProcessor`,
+`IEditController`).  The bridge links against the open-source Steinberg
+VST3 SDK (GPL v3 / Steinberg dual licence):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  vst3_bridge task                                               │
+│  ├── VST3 factory: IPluginFactory → IComponent + IAudioProcessor│
+│  ├── IAudioProcessor::process() ← render request              │
+│  ├── IEditController  ← parameter get/set                     │
+│  └── UNHOX AU render loop  ← translates mach_msg ↔ VST3 C++  │
+└─────────────────────────────────────────────────────────────────┘
+         │  UNHOX AU IPC (8500–8799)
+         ▼
+    Audio Server
+```
+
+File: `servers/audio/vst3_bridge/vst3_bridge.cpp` (C++ required by VST3 SDK).
+
+A C++ compiler and the Steinberg VST3 SDK must be present in the build tree.
+The bridge is an **optional component** gated on `UNHOX_ENABLE_VST3_BRIDGE`
+in CMake.
+
+#### AAX (Avid Audio eXtension — Pro Tools)
+
+AAX is Avid's proprietary format for Pro Tools HDX and Native.  The AAX SDK
+is available only under a signed NDA with Avid.  A bridge is **architecturally
+possible** (same task-isolation model as VST), but **cannot be implemented
+in this repository** without the SDK.  An implementation requires:
+
+- A signed AAX developer agreement with Avid.
+- The AAX SDK headers and `AAX_CMonolithicParameters` base class.
+- A separate out-of-tree repository, linked into the build as an optional
+  external component.
+
+UNHOX documents the architecture here so that a licensed developer can build
+the bridge without redesigning the audio server.
+
+#### LV2 (LADSPA Version 2 — Linux Audio)
+
+LV2 is a fully open plugin format (ISC licence) with rich metadata via RDF
+Turtle `.ttl` manifests.  The host API is C-compatible and self-describing.
+LV2 is a strong candidate for the **first** bridge implementation:
+
+- No NDA or proprietary SDK required.
+- Many high-quality open-source plugins available (Calf, ZamaPlugins, x42).
+- Atom event port maps naturally to UNHOX MIDI event messages.
+
+File: `servers/audio/lv2_bridge/lv2_bridge.c`
+
+#### Plugin Bridge Architecture Summary
+
+| Format | SDK Licence | Binary ABI | UNHOX Bridge Status |
+|--------|-------------|------------|---------------------|
+| LV2 | ISC (open) | C | Planned — Phase 5 |
+| VST2 | Steinberg Free | C | Planned — Phase 5 |
+| VST3 | GPL v3 / Steinberg dual | C++ (COM-like) | Planned — Phase 5 (C++ build required) |
+| AAX | Avid NDA | C++ (proprietary) | Architecture documented; implementation out-of-tree |
+| CLAP | MIT (open) | C | Candidate for Phase 5 (newer, simpler than VST3) |
+
+CLAP (CLever Audio Plug-in API) is a recent open alternative to VST3
+(MIT licence, Bitwig/u-he/Surge) with a simpler C ABI and native
+process-isolation model that maps well to UNHOX tasks.
+
 ### Port Naming Convention
 
 Bootstrap port names follow the same `com.unhox.*` convention used by the
@@ -359,6 +514,22 @@ Rejected because:
    in a Phase 3 device driver RFC or can it be included directly in the audio
    subsystem tasks?
 
+6. **AUv3 binary compatibility**: Should a future AUv3 compatibility wrapper
+   task be part of the Audio Units framework (`frameworks/AudioUnits/auv3_compat/`)
+   or a separate plugin bridge (`servers/audio/auv3_bridge/`)?  AUv3 plugins
+   use XPC as transport on macOS; UNHOX would need a `libxpc` shim that maps
+   XPC calls to native Mach port messages.
+
+7. **VST3 C++ ABI**: The VST3 bridge (`vst3_bridge.cpp`) requires a C++ compiler
+   in the UNHOX build tree.  The kernel and servers are currently pure C.  Should
+   the plugin bridges be an optional component built by a separate C++ toolchain,
+   or should the VST3 bridge expose only a C wrapper that can be compiled by the
+   main Clang C driver?
+
+8. **CLAP vs. VST3 as the primary open plugin format**: CLAP (MIT, newer C ABI)
+   is a simpler integration than VST3 (GPL/proprietary dual, C++ COM).  Should the
+   first bridge implementation target CLAP rather than VST3?
+
 ## Implementation Checklist
 
 All checklist items follow the format defined in `docs/rfcs/README.md` (PR #15).
@@ -428,6 +599,19 @@ All checklist items follow the format defined in `docs/rfcs/README.md` (PR #15).
 - [ ] `[phase:5]` `[layer:L1]` `[component:framework]` Unit test: render 1024-frame sine; THD < −80 dB
 - [ ] `[phase:5]` `[layer:L1]` `[component:framework]` Integration test: sine AU → EQ AU → mixer AU → output
 
+### Plugin Format Compatibility Bridges (Phase 5)
+
+- [ ] `[phase:5]` `[component:framework]` Write `servers/audio/lv2_bridge/lv2_bridge.c` — LV2 host wrapper (ISC licence)
+- [ ] `[phase:5]` `[component:framework]` Write `servers/audio/vst2_bridge/vst2_bridge.c` — VST2 AEffect wrapper
+- [ ] `[phase:5]` `[component:framework]` Write `servers/audio/vst3_bridge/vst3_bridge.cpp` — VST3 IAudioProcessor wrapper (optional C++ build)
+- [ ] `[phase:5]` `[component:framework]` Write `servers/audio/clap_bridge/clap_bridge.c` — CLAP host wrapper (MIT licence)
+- [ ] `[phase:5]` `[layer:L1]` `[component:framework]` Integration test: LV2 Calf Compressor loaded via bridge; xrun-free render
+- [ ] `[phase:5]` `[layer:L1]` `[component:framework]` Integration test: VST2 bridge renders bypass; verify sample-accurate pass-through
+
+### `SCHED_RT` Kernel RFC (Phase 2)
+
+- [ ] `[phase:2]` `[component:docs]` Write `docs/rfcs/RFC-0006-rt-scheduling.md` covering `SCHED_RT` policy API, EDF/CBS algorithms, MCS, and verification plan
+
 ### Documentation and CI (Phase 5)
 
 - [x] `[phase:5]` `[component:docs]` Write `docs/rfcs/RFC-0005-audio-subsystem.md` (this document)
@@ -446,12 +630,19 @@ All checklist items follow the format defined in `docs/rfcs/README.md` (PR #15).
 - Tevanian et al., "Mach Threads and the Unix Kernel: The Battle for Control" (1987)
 - OSF MK6 `kern/sched_prim.c` — real-time thread scheduling
 - Apple Developer Documentation: Core Audio Overview (2004)
-- Apple Developer Documentation: Audio Unit Programming Guide (2012)
+- Apple Developer Documentation: Audio Unit Programming Guide (2012) — AU v2 C API
+- Apple Developer Documentation: Audio Unit Extensions (AUv3) for iOS and macOS (2015)
 - Apple Core MIDI Framework Reference (2012)
 - USB Device Class Definition for MIDI Devices Rev 1.0 (1999, usb.org)
 - USB Device Class Definition for Audio Devices Rev 2.0 (2009, usb.org)
 - Intel High Definition Audio Specification Rev 1.0a (2010)
 - virtio-snd specification, virtio v1.2 §5.14
+- Steinberg, "VST Plug-In SDK 2.4" (2006) — VST2 C API and `AEffect` struct
+- Steinberg, "VST 3 SDK" (GPL v3 / Steinberg licence) — https://github.com/steinbergmedia/vst3sdk
+- Free Eichhorn et al., "CLAP (CLever Audio Plug-in API)" (MIT) — https://github.com/free-audio/clap
+- Larsson, "LV2 Core Specification" (ISC) — https://lv2plug.in
+- Falkner, "Real-Time Audio in macOS and iOS: AUv3 Out-of-Process Plug-ins" (WWDC 2018, Session 507)
+- Levis, "Mixed Criticality Scheduling" in Lipari et al. (eds.) "Embedded Systems Design" (2011)
 - UNHOX RFC-0001: IPC Message Format (`docs/rfcs/RFC-0001-ipc-message-format.md`)
 - UNHOX PR #8: IPC Architecture implementation (ipc_right.c, mach_msg.c)
 - UNHOX PR #9: Display Server Alternatives RFC (IPC-IMP-1 through IPC-IMP-4 gate conditions)

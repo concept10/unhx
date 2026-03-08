@@ -366,6 +366,68 @@ with a silence generator for that bus.
 
 ---
 
+## Plugin Format Compatibility Bridges
+
+UNHOX Audio Units are structurally equivalent to Apple AUv3 out-of-process
+plug-ins: every third-party plugin runs in an isolated Mach task, the same
+isolation guarantee that AUv3 provides via XPC process sandboxing.  Each
+bridge task is an UNHOX AU that also speaks a foreign plugin SDK internally:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Plugin Bridge Task                                              │
+│  ┌────────────────────────┐    ┌──────────────────────────────┐  │
+│  │  Native SDK side       │    │  UNHOX AU side               │  │
+│  │  (VST2/VST3/LV2/CLAP) │◄──►│  au_render_port (IPC 8501)  │  │
+│  │  dlopen(plugin.so)    │    │  au_midi_port   (IPC 8601)  │  │
+│  │  process(buffer)      │    │  au_control_port(IPC 8701)  │  │
+│  └────────────────────────┘    └──────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### LV2 Bridge (Phase 5 — open source, ISC licence)
+
+LV2 plugins expose a C ABI (`LV2_Descriptor`) with atom event ports for
+MIDI.  The bridge initialises the plugin via `lv2_descriptor()->instantiate()`,
+maps the UNHOX OOL buffer as the audio port, and calls `run()` each render
+period.  Atom event packets translate directly to `au_midi_event_msg`.
+
+File: `servers/audio/lv2_bridge/lv2_bridge.c`
+
+### VST2 Bridge (Phase 5 — Steinberg Free SDK)
+
+VST2 plugins expose an `AEffect` struct with `processReplacing()`.  The bridge
+calls `VSTPluginMain()`, stores the returned `AEffect *`, and wraps the render
+callback.  Parameter changes (`effSetParam`) map to `au_set_param_msg`.
+
+File: `servers/audio/vst2_bridge/vst2_bridge.c`
+
+### VST3 Bridge (Phase 5 — optional C++ build)
+
+VST3 uses a COM-like C++ interface (`IComponent`, `IAudioProcessor`).  The
+bridge links against the open-source Steinberg VST3 SDK (GPL v3 / dual).
+Because the SDK requires C++, the bridge is an **optional component** enabled
+by `UNHOX_ENABLE_VST3_BRIDGE` in CMake and compiled with `clang++`.
+
+File: `servers/audio/vst3_bridge/vst3_bridge.cpp`
+
+### CLAP Bridge (Phase 5 — MIT licence)
+
+CLAP (CLever Audio Plug-in API) has a clean C ABI similar to LV2 but with
+explicit parameter automation, thread-safety annotations, and a process-isolation
+model that maps directly to UNHOX tasks.  CLAP is the recommended starting point
+for new UNHOX-native plugin development.
+
+File: `servers/audio/clap_bridge/clap_bridge.c`
+
+### AAX Bridge (Architecture only — out-of-tree)
+
+AAX (Avid) requires a signed NDA SDK.  The bridge architecture is identical to
+the others but cannot be shipped in this repository.  See
+`docs/rfcs/RFC-0005-audio-subsystem.md §Plugin Format Compatibility Bridges`.
+
+---
+
 ## File Layout
 
 ```
@@ -377,6 +439,14 @@ servers/audio/
 ├── audio_rt.c            # SCHED_RT I/O thread: render loop, xrun handling
 ├── audio_format.c        # format negotiation; auto-insert SRC node
 ├── audio_mig.h           # MIG message struct definitions (IDs 8000–8299)
+├── lv2_bridge/
+│   └── lv2_bridge.c      # LV2 host wrapper (ISC, Phase 5)
+├── vst2_bridge/
+│   └── vst2_bridge.c     # VST2 AEffect wrapper (Steinberg Free, Phase 5)
+├── vst3_bridge/
+│   └── vst3_bridge.cpp   # VST3 IAudioProcessor wrapper (optional C++, Phase 5)
+├── clap_bridge/
+│   └── clap_bridge.c     # CLAP host wrapper (MIT, Phase 5)
 └── README.md
 
 servers/midi/
@@ -447,9 +517,12 @@ servers):
 13. Implement Audio Graph (`audio_graph.c`): DAG, topological sort, connect/disconnect
 14. Build system Audio Units: mixer, SRC, output
 15. Implement `frameworks/AudioUnits/` client library: `AUGraph.c`, `AudioUnitBase.c`
-16. Integration test: sine-wave instrument AU → EQ effect AU → mixer AU → hardware output
-17. Benchmark: measure round-trip latency at 128-frame / 48 kHz buffer size
-18. Document xrun handling and RT deadline behaviour in `docs/rfcs/`
+16. Implement LV2 bridge (`servers/audio/lv2_bridge/`) — first plugin format bridge
+17. Implement VST2 bridge (`servers/audio/vst2_bridge/`) — frozen Steinberg C ABI
+18. Implement CLAP bridge (`servers/audio/clap_bridge/`) — MIT, modern C ABI
+19. Integration test: sine-wave instrument AU → EQ effect AU → mixer AU → hardware output
+20. Benchmark: measure round-trip latency at 128-frame / 48 kHz buffer size
+21. Document xrun handling and RT deadline behaviour in `docs/rfcs/`
 
 ---
 
@@ -459,8 +532,14 @@ servers):
 - Tevanian et al., "Mach Threads and the Unix Kernel: The Battle for Control" (1987)
 - OSF MK6 `kern/sched_prim.c` — real-time thread scheduling
 - Apple Developer Documentation: Core Audio Overview (2004)
-- Apple Developer Documentation: Audio Unit Programming Guide (2012)
+- Apple Developer Documentation: Audio Unit Programming Guide (2012) — AU v2 C API
+- Apple Developer Documentation: Audio Unit Extensions (AUv3) for iOS and macOS (2015)
 - Apple Core MIDI Framework Reference (2012)
+- Falkner, "Real-Time Audio in macOS and iOS: AUv3 Out-of-Process Plug-ins" (WWDC 2018, Session 507)
+- Steinberg, "VST Plug-In SDK 2.4" (2006) — VST2 C API and `AEffect` struct
+- Steinberg, "VST 3 SDK" (GPL v3 / Steinberg licence) — https://github.com/steinbergmedia/vst3sdk
+- Free Eichhorn et al., "CLAP (CLever Audio Plug-in API)" (MIT) — https://github.com/free-audio/clap
+- Larsson, "LV2 Core Specification" (ISC) — https://lv2plug.in
 - USB Device Class Definition for MIDI Devices Rev 1.0 (1999, usb.org)
 - USB Device Class Definition for Audio Devices Rev 2.0 (2009, usb.org)
 - Intel High Definition Audio Specification Rev 1.0a (2010)

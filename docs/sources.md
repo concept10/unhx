@@ -60,13 +60,24 @@ included in the repository.
 | USB MIDI Class 1.0 specification | usb.org | Public specification |
 | virtio-snd specification | virtio-spec §5.14 | Apache-2.0 / public |
 | Apple Core Audio Overview (2004) | developer.apple.com | Reference only |
-| Apple Audio Unit Programming Guide | developer.apple.com | Reference only |
+| Apple Audio Unit Programming Guide (AU v2) | developer.apple.com | Reference only |
+| Apple Audio Unit Extensions — AUv3 (2015) | developer.apple.com | Reference only |
 | Apple Core MIDI Framework Reference | developer.apple.com | Reference only |
+| Steinberg VST2 SDK 2.4 | Steinberg developer portal | Steinberg Free SDK (reference) |
+| Steinberg VST3 SDK | https://github.com/steinbergmedia/vst3sdk | GPL v3 / Steinberg dual |
+| CLAP SDK | https://github.com/free-audio/clap | MIT |
+| LV2 Core Specification | https://lv2plug.in | ISC |
 
 No code from Apple's Core Audio, Core MIDI, or Audio Unit implementations is
 copied into UNHOX.  These documents are consulted only for API design
 inspiration.  The UNHOX Audio Server, MIDI Server, and Audio Units framework
 are original implementations using Mach IPC as their sole transport.
+
+The Steinberg VST2 SDK is referenced for the frozen `AEffect` struct ABI only;
+no VST2 SDK source is embedded.  The Steinberg VST3 SDK is an optional build
+dependency for the VST3 bridge component and is fetched at build time under its
+GPL v3 licence.  CLAP and LV2 SDKs are MIT and ISC respectively and may be
+included as build dependencies.
 
 ## UNHOX Original Code
 
