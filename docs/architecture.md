@@ -1,10 +1,10 @@
-# UNHOX System Architecture
+# NEOMACH System Architecture
 
 ## Full Software Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│            UNHOX Full Software Stack                        │
+│            NEOMACH Full Software Stack                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Workspace Manager  │  AppKit  │  Display Server (DPS)      │
 ├─────────────────────┼──────────┼────────────────────────────┤
@@ -22,7 +22,7 @@
 
 ## Kernel/Server Split
 
-UNHOX maintains strict microkernel discipline. The boundary:
+NEOMACH maintains strict microkernel discipline. The boundary:
 
 **Inside the kernel (kernel/ directory):**
 - Mach port IPC (`kernel/ipc/`)
@@ -64,7 +64,7 @@ Client Task                    Server Task
 
 ## Deployment Scope
 
-The UNHOX kernel is not limited to desktop use.  The microkernel design makes it
+The NEOMACH kernel is not limited to desktop use.  The microkernel design makes it
 applicable to embedded systems, edge devices, industrial PLCs, virtual PLC runtimes,
 and more — the kernel binary is identical; only the servers launched at boot change.
 
@@ -74,7 +74,7 @@ See [use-cases.md](use-cases.md) for a comprehensive discussion of:
 - PLC runtime and virtual PLC runtime profiles
 - Edge / IoT gateway deployment patterns
 - Platform-specific examples (Raspberry Pi, NXP i.MX, RISC-V, Industrial PC, Automotive SoC)
-- Decision guide for choosing UNHOX vs. other microkernel or RTOS options
+- Decision guide for choosing NEOMACH vs. other microkernel or RTOS options
 
 ## Source References
 

@@ -1,6 +1,6 @@
 # Source Inventory & Licenses
 
-Complete inventory of all external sources used in UNHOX, with provenance and
+Complete inventory of all external sources used in NEOMACH, with provenance and
 licensing information.
 
 ## Kernel References (archive/)
@@ -41,16 +41,16 @@ licensing information.
 
 ### Notes on Framework Licenses
 
-- **libobjc2** (MIT): No restrictions on use in UNHOX.
+- **libobjc2** (MIT): No restrictions on use in NEOMACH.
 - **GNUstep Base/GUI** (LGPL-2.1): Must be dynamically linked or provide
-  object files for relinking. UNHOX servers will link these as shared libraries.
+  object files for relinking. NEOMACH servers will link these as shared libraries.
 - **libdispatch / CoreFoundation** (Apache-2.0): Permissive. Must retain
   copyright notices and license text.
 
-## UNHOX Original Code
+## NEOMACH Original Code
 
-All original UNHOX code (kernel, servers, build system, documentation) is
-authored by the UNHOX project contributors. License TBD — expected to be a
+All original NEOMACH code (kernel, servers, build system, documentation) is
+authored by the NEOMACH project contributors. License TBD — expected to be a
 permissive license (MIT or BSD-2-Clause).
 
 ## XNU Reference (not mirrored)

@@ -1,5 +1,5 @@
 /*
- * kernel/linker-aarch64.ld — Linker script for the UNHOX kernel (AArch64)
+ * kernel/linker-aarch64.ld — Linker script for the NEOMACH kernel (AArch64)
  *
  * Targets QEMU's -machine virt board.  Physical RAM starts at 0x40000000;
  * the kernel is loaded there directly.

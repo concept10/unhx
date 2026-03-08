@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_kmsg.h — mach_msg() kernel entry point for UNHOX
+ * kernel/ipc/ipc_kmsg.h — mach_msg() kernel entry point for NEOMACH
  *
  * mach_msg() is the single most important system call in Mach.
  * ALL inter-process communication goes through it.

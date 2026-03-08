@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_port.h — Kernel-internal port object for UNHOX
+ * kernel/ipc/ipc_port.h — Kernel-internal port object for NEOMACH
  *
  * This header defines struct ipc_port, the kernel-side representation of a
  * Mach port.  Userspace tasks never see this structure; they see only port

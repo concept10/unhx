@@ -1,19 +1,19 @@
 # RFC-0001: IPC Message Format
 
 - **Status**: Accepted
-- **Author**: UNHOX Project
+- **Author**: NEOMACH Project
 - **Date**: 2026-03-01
 
 ## Summary
 
-This RFC defines the binary format of Mach IPC messages in UNHOX, covering
+This RFC defines the binary format of Mach IPC messages in NEOMACH, covering
 the message header, inline data, and (future) out-of-line descriptors. The
 format follows CMU Mach 3.0 conventions to maintain compatibility with MIG
 (Mach Interface Generator) and existing Mach documentation.
 
 ## Motivation
 
-Every inter-process interaction in UNHOX uses Mach messages. A well-defined,
+Every inter-process interaction in NEOMACH uses Mach messages. A well-defined,
 stable message format is essential for:
 
 1. Server interoperability (BSD, VFS, device servers must agree on wire format)

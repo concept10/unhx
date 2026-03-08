@@ -1,4 +1,4 @@
-# kernel/CMakeLists.txt — Build system for the UNHOX kernel
+# kernel/CMakeLists.txt — Build system for the NEOMACH kernel
 #
 # Supports two target architectures selected via the CMake toolchain file:
 #   x86-64   — cmake/x86_64-elf-clang.cmake  (default)
@@ -9,13 +9,13 @@
 #   x86-64:
 #     cmake -S kernel -B build \
 #           -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
-#           -DUNHOX_BOOT_TESTS=ON
+#           -DNEOMACH_BOOT_TESTS=ON
 #     cmake --build build
 #
 #   AArch64 (Apple Silicon / M-series Mac):
 #     cmake -S kernel -B build-aarch64 \
 #           -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-elf-clang.cmake \
-#           -DUNHOX_BOOT_TESTS=ON
+#           -DNEOMACH_BOOT_TESTS=ON
 #     cmake --build build-aarch64
 #
 # Prerequisites (macOS arm64):
@@ -26,7 +26,7 @@ cmake_minimum_required(VERSION 3.20)
 # When built standalone (cmake -S kernel -B build), define the project here.
 # When built via the root CMakeLists.txt, the project is already defined.
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    project(unhx_kernel C ASM)
+    project(neomach_kernel C ASM)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -38,7 +38,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # ---------------------------------------------------------------------------
 # Optional: compile-in boot self-tests (Phase 1 milestone IPC test)
 # ---------------------------------------------------------------------------
-option(UNHOX_BOOT_TESTS "Include kernel boot self-tests" OFF)
+option(NEOMACH_BOOT_TESTS "Include kernel boot self-tests" OFF)
 
 # ---------------------------------------------------------------------------
 # Freestanding kernel compile flags
@@ -127,26 +127,26 @@ set(KERNEL_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/registry.c
 )
 
-if(UNHOX_BOOT_TESTS)
+if(NEOMACH_BOOT_TESTS)
     list(APPEND KERNEL_SOURCES
         tests/ipc_test.c
     )
-    add_compile_definitions(UNHOX_BOOT_TESTS=1)
+    add_compile_definitions(NEOMACH_BOOT_TESTS=1)
 endif()
 
 # ---------------------------------------------------------------------------
 # Kernel binary target
 # ---------------------------------------------------------------------------
 
-add_executable(unhx.elf ${KERNEL_SOURCES})
+add_executable(neomach.elf ${KERNEL_SOURCES})
 
-target_include_directories(unhx.elf PRIVATE
+target_include_directories(neomach.elf PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers
 )
 
-target_compile_options(unhx.elf PRIVATE
+target_compile_options(neomach.elf PRIVATE
     $<$<COMPILE_LANGUAGE:C>:${KERNEL_C_FLAGS}>
     $<$<COMPILE_LANGUAGE:ASM>:${KERNEL_ASM_FLAGS}>
 )
@@ -155,19 +155,19 @@ target_compile_options(unhx.elf PRIVATE
 # When using the cross-compilation toolchain (cmake/x86_64-elf-clang.cmake or
 # cmake/aarch64-elf-clang.cmake), ld.lld is invoked directly (not through
 # clang), so these are ld.lld flags.
-target_link_options(unhx.elf PRIVATE
+target_link_options(neomach.elf PRIVATE
     -T ${KERNEL_LINKER_SCRIPT}
     -z max-page-size=4096
     --static
 )
 
-set_target_properties(unhx.elf PROPERTIES
+set_target_properties(neomach.elf PROPERTIES
     LINK_DEPENDS ${KERNEL_LINKER_SCRIPT}
     SUFFIX ""                  # avoid CMake appending .elf twice
-    OUTPUT_NAME "unhx.elf"
+    OUTPUT_NAME "neomach.elf"
 )
 
 # ---------------------------------------------------------------------------
 # Installation
 # ---------------------------------------------------------------------------
-install(TARGETS unhx.elf DESTINATION boot)
+install(TARGETS neomach.elf DESTINATION boot)

@@ -1,5 +1,5 @@
 /*
- * kernel/platform/aarch64/platform.c — AArch64 hardware abstraction for UNHOX
+ * kernel/platform/aarch64/platform.c — AArch64 hardware abstraction for NEOMACH
  *
  * Implements platform_init(), serial_putchar(), serial_putstr(), and related
  * helpers using the ARM PL011 UART.  On QEMU's -machine virt the PL011 is

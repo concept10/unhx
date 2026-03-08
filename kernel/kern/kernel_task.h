@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kernel_task.h — Kernel bootstrap and IPC smoke test for UNHOX
+ * kernel/kern/kernel_task.h — Kernel bootstrap and IPC smoke test for NEOMACH
  *
  * The kernel task (task 0) is the first task created at boot.  It owns the
  * kernel's own port namespace and serves as the parent for all other tasks.
@@ -27,8 +27,8 @@ void kernel_task_init(void);
  * and verifies task_a can receive it.
  *
  * Prints to serial console:
- *   [UNHOX IPC] message received: hello
- *   [UNHOX] Phase 1 complete. Mach IPC operational.
+ *   [NEOMACH IPC] message received: hello
+ *   [NEOMACH] Phase 1 complete. Mach IPC operational.
  */
 void create_test_tasks(void);
 

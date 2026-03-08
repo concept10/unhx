@@ -1,6 +1,6 @@
 # kernel/platform/
 
-Hardware Abstraction Layer (HAL) for UNHOX kernel.
+Hardware Abstraction Layer (HAL) for NEOMACH kernel.
 
 ## Targets
 

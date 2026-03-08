@@ -1,5 +1,5 @@
 /*
- * kernel/platform/aarch64/boot.S — AArch64 boot entry for UNHOX
+ * kernel/platform/aarch64/boot.S — AArch64 boot entry for NEOMACH
  *
  * Entry point for QEMU's -machine virt board.  QEMU loads the ELF image and
  * begins execution at _start (EL1 when launched with -machine virt,

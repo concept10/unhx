@@ -1,6 +1,6 @@
 # Build Setup
 
-How to build and run UNHOX from source.
+How to build and run NEOMACH from source.
 
 ## Quick Start
 
@@ -11,7 +11,7 @@ brew install llvm qemu
 # 2. Build the kernel
 cmake -S . -B build \
       -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
-      -DUNHOX_BOOT_TESTS=ON
+      -DNEOMACH_BOOT_TESTS=ON
 cmake --build build
 
 # 3. Run under QEMU
@@ -20,7 +20,7 @@ cmake --build build
 
 ## Prerequisites
 
-UNHOX uses Clang as a cross-compiler targeting `x86_64-unknown-elf`.
+NEOMACH uses Clang as a cross-compiler targeting `x86_64-unknown-elf`.
 
 | Tool | Purpose | Minimum Version |
 |------|---------|----------------|
@@ -60,7 +60,7 @@ All tools are pinned to exact versions in `flake.nix`.
 
 | CMake Option | Default | Description |
 |-------------|---------|-------------|
-| `UNHOX_BOOT_TESTS` | OFF | Compile kernel boot self-tests (IPC smoke test) |
+| `NEOMACH_BOOT_TESTS` | OFF | Compile kernel boot self-tests (IPC smoke test) |
 | `CMAKE_BUILD_TYPE` | - | Debug, Release, RelWithDebInfo |
 
 ## Build Commands
@@ -71,7 +71,7 @@ All tools are pinned to exact versions in `flake.nix`.
 cmake -S . -B build \
       -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
       -DCMAKE_BUILD_TYPE=Debug \
-      -DUNHOX_BOOT_TESTS=ON
+      -DNEOMACH_BOOT_TESTS=ON
 cmake --build build
 ```
 
@@ -99,12 +99,12 @@ In another:
 ```sh
 ./tools/debug-qemu.sh
 # Or manually:
-gdb build/unhx.elf -ex "target remote :1234"
+gdb build/neomach.elf -ex "target remote :1234"
 ```
 
 ## Output
 
-The kernel binary is `build/unhx.elf` — a Multiboot2-compatible ELF that
+The kernel binary is `build/neomach.elf` — a Multiboot2-compatible ELF that
 QEMU can load directly with `-kernel`.
 
 Serial output goes to stdout (COM1 at I/O port 0x3F8). Press `Ctrl-A X` to

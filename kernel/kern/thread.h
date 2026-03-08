@@ -1,5 +1,5 @@
 /*
- * kernel/kern/thread.h — Mach thread abstraction for UNHOX
+ * kernel/kern/thread.h — Mach thread abstraction for NEOMACH
  *
  * A thread is a unit of EXECUTION.  It belongs to exactly one task.
  * The scheduler selects threads to run on the CPU.

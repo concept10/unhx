@@ -1,5 +1,5 @@
 /*
- * kernel/kern/task.h — Mach task abstraction for UNHOX
+ * kernel/kern/task.h — Mach task abstraction for NEOMACH
  *
  * A Mach task is a unit of RESOURCE OWNERSHIP.  It has:
  *   - A virtual address space (vm_map)

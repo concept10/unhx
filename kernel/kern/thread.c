@@ -1,5 +1,5 @@
 /*
- * kernel/kern/thread.c — Mach thread abstraction for UNHOX
+ * kernel/kern/thread.c — Mach thread abstraction for NEOMACH
  *
  * See thread.h for design rationale.
  *

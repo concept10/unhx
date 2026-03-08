@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_mqueue.c — Per-port message queue for UNHOX
+ * kernel/ipc/ipc_mqueue.c — Per-port message queue for NEOMACH
  *
  * See ipc_mqueue.h for design rationale and Phase 2 TODO markers.
  *

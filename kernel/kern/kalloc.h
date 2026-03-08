@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kalloc.h — Kernel memory allocator for UNHOX (Phase 1)
+ * kernel/kern/kalloc.h — Kernel memory allocator for NEOMACH (Phase 1)
  *
  * Phase 1 uses a simple bump allocator backed by a fixed-size static buffer.
  * This avoids the need for a full heap implementation while still allowing

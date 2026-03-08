@@ -1,6 +1,6 @@
-# UNHOX Developer Guide — C and Assembly Examples
+# NEOMACH Developer Guide — C and Assembly Examples
 
-A practical walkthrough of the C and assembly source files in the UNHOX
+A practical walkthrough of the C and assembly source files in the NEOMACH
 kernel for developers joining the project.  Read this alongside the
 [architecture overview](architecture.md) and
 [build setup guide](build-setup.md).
@@ -36,8 +36,8 @@ kernel for developers joining the project.  Read this alongside the
 ## 1. Repository Structure
 
 ```
-unhx/
-├── kernel/           UNHOX Mach microkernel
+neomach/
+├── kernel/           NEOMACH Mach microkernel
 │   ├── platform/     x86-64 hardware abstraction (boot, GDT, serial, paging)
 │   ├── kern/         Kernel core (task, thread, scheduler, allocator)
 │   ├── ipc/          Mach IPC (ports, port spaces, message queues)
@@ -67,7 +67,7 @@ brew install llvm qemu
 # Configure (from the repo root)
 cmake -S kernel -B build \
       -DCMAKE_TOOLCHAIN_FILE=$(pwd)/cmake/x86_64-elf-clang.cmake \
-      -DUNHOX_BOOT_TESTS=ON
+      -DNEOMACH_BOOT_TESTS=ON
 
 # Build
 cmake --build build
@@ -76,7 +76,7 @@ cmake --build build
 ./tools/run-qemu.sh --no-build
 ```
 
-The kernel binary is `build/unhx.elf`.  Press `Ctrl-A X` to quit QEMU.
+The kernel binary is `build/neomach.elf`.  Press `Ctrl-A X` to quit QEMU.
 
 **Why Clang instead of GCC?**  We target `x86_64-unknown-elf` (a bare-metal
 freestanding target).  Clang handles this with a simple `--target=` flag and
@@ -731,7 +731,7 @@ subsystems in strict dependency order:
 ```c
 void kernel_main(void)
 {
-    serial_putstr("[UNHOX] kernel_main entered\r\n");
+    serial_putstr("[NEOMACH] kernel_main entered\r\n");
 
     kalloc_init();   /* 1. heap — everything else needs this */
     ipc_init();      /* 2. IPC port infrastructure */
@@ -741,7 +741,7 @@ void kernel_main(void)
     create_test_tasks();  /* Phase 1 IPC smoke test */
     bootstrap_main();     /* Phase 1 in-kernel bootstrap demo */
 
-#ifdef UNHOX_BOOT_TESTS
+#ifdef NEOMACH_BOOT_TESTS
     ipc_test_run();       /* formal milestone test suite */
 #endif
 

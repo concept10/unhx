@@ -1,6 +1,6 @@
-# Cross-Compiler Toolchain for UNHOX
+# Cross-Compiler Toolchain for NEOMACH
 
-UNHOX targets `x86_64-unknown-elf` (bare-metal, no OS). The build uses
+NEOMACH targets `x86_64-unknown-elf` (bare-metal, no OS). The build uses
 **LLVM/Clang** as a cross-compiler with `ld.lld` as the linker.
 
 ## Why Clang?
@@ -58,7 +58,7 @@ From the repository root:
 ```sh
 cmake -S . -B build \
       -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake \
-      -DUNHOX_BOOT_TESTS=ON
+      -DNEOMACH_BOOT_TESTS=ON
 cmake --build build
 ```
 

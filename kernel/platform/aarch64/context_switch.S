@@ -1,5 +1,5 @@
 /*
- * kernel/platform/aarch64/context_switch.S — AArch64 context switch for UNHOX
+ * kernel/platform/aarch64/context_switch.S — AArch64 context switch for NEOMACH
  *
  * Saves the callee-saved registers of the current thread and restores
  * those of the next thread, switching execution context.
