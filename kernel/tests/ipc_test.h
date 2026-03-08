@@ -1,7 +1,7 @@
 /*
- * kernel/tests/ipc_test.h — IPC milestone self-test for UNHOX (v0.2)
+ * kernel/tests/ipc_test.h — IPC milestone self-test for NEOMACH (v0.2)
  *
- * Controlled by CMake option UNHOX_BOOT_TESTS=ON.
+ * Controlled by CMake option NEOMACH_BOOT_TESTS=ON.
  * Called from kernel_main() in debug builds.
  */
 

@@ -1,4 +1,4 @@
-# cmake/x86_64-elf-clang.cmake — Cross-compilation toolchain for UNHOX
+# cmake/x86_64-elf-clang.cmake — Cross-compilation toolchain for NEOMACH
 #
 # Builds an x86-64 freestanding ELF kernel from any host (including arm64 macOS).
 #

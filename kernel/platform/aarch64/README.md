@@ -1,6 +1,6 @@
 # kernel/platform/aarch64/
 
-AArch64 (ARM64) Hardware Abstraction Layer for UNHOX.
+AArch64 (ARM64) Hardware Abstraction Layer for NEOMACH.
 
 ## Files
 
@@ -19,7 +19,7 @@ brew install llvm qemu
 # Build
 cmake -S kernel -B build-aarch64 \
       -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-elf-clang.cmake \
-      -DUNHOX_BOOT_TESTS=ON
+      -DNEOMACH_BOOT_TESTS=ON
 cmake --build build-aarch64
 
 # Run under QEMU

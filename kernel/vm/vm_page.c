@@ -1,5 +1,5 @@
 /*
- * kernel/vm/vm_page.c — Physical page frame allocator for UNHOX
+ * kernel/vm/vm_page.c — Physical page frame allocator for NEOMACH
  *
  * See vm_page.h for interface documentation.
  */

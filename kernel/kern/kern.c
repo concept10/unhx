@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kern.c — Kernel core initialisation and kernel_main for UNHOX
+ * kernel/kern/kern.c — Kernel core initialisation and kernel_main for NEOMACH
  *
  * kernel_main() is the C entry point invoked by the assembly boot stub
  * (kernel/platform/boot.S) after the GDT is loaded, the initial stack is
@@ -15,7 +15,7 @@
 #include "ipc/ipc.h"
 #include "vm/vm.h"
 
-#ifdef UNHOX_BOOT_TESTS
+#ifdef NEOMACH_BOOT_TESTS
 #include "tests/ipc_test.h"
 #endif
 
@@ -41,10 +41,10 @@ void kernel_main(void)
 
     serial_putstr("\r\n");
     serial_putstr("================================================\r\n");
-    serial_putstr("  UNHOX — U Is Not Hurd Or X\r\n");
+    serial_putstr("  NEOMACH — The Mach Kernel Reborn\r\n");
     serial_putstr("  Mach microkernel — Phase 1\r\n");
     serial_putstr("================================================\r\n");
-    serial_putstr("[UNHOX] kernel_main entered\r\n");
+    serial_putstr("[NEOMACH] kernel_main entered\r\n");
 
     /*
      * Initialise subsystems in dependency order:
@@ -53,19 +53,19 @@ void kernel_main(void)
      *   3. VM      — physical page allocator
      *   4. kern    — kernel task, scheduler
      */
-    serial_putstr("[UNHOX] initialising kernel heap...\r\n");
+    serial_putstr("[NEOMACH] initialising kernel heap...\r\n");
     kalloc_init();
 
-    serial_putstr("[UNHOX] initialising IPC subsystem...\r\n");
+    serial_putstr("[NEOMACH] initialising IPC subsystem...\r\n");
     ipc_init();
 
-    serial_putstr("[UNHOX] initialising VM subsystem...\r\n");
+    serial_putstr("[NEOMACH] initialising VM subsystem...\r\n");
     vm_init(0, 0);  /* TODO: parse real Multiboot2 memory map */
 
-    serial_putstr("[UNHOX] initialising kernel core...\r\n");
+    serial_putstr("[NEOMACH] initialising kernel core...\r\n");
     kern_init();
 
-    serial_putstr("[UNHOX] all subsystems initialised\r\n");
+    serial_putstr("[NEOMACH] all subsystems initialised\r\n");
 
     /*
      * Phase 1 IPC smoke test (Prompt 3.3):
@@ -80,7 +80,7 @@ void kernel_main(void)
     serial_putstr("\r\n");
     bootstrap_main();
 
-#ifdef UNHOX_BOOT_TESTS
+#ifdef NEOMACH_BOOT_TESTS
     /*
      * Formal IPC milestone test (Prompt 8 — v0.2):
      * Comprehensive test suite with PASS/FAIL reporting.
@@ -89,14 +89,14 @@ void kernel_main(void)
     int test_result = ipc_test_run();
 
     if (test_result == 0) {
-        serial_putstr("\r\n[UNHOX] All milestone tests PASSED.\r\n");
+        serial_putstr("\r\n[NEOMACH] All milestone tests PASSED.\r\n");
     } else {
-        serial_putstr("\r\n[UNHOX] Milestone tests FAILED.\r\n");
+        serial_putstr("\r\n[NEOMACH] Milestone tests FAILED.\r\n");
     }
 #endif
 
     /* Halt — preemptive scheduler loop goes here in Phase 2 */
-    serial_putstr("\r\n[UNHOX] halting (cooperative scheduling only in Phase 1)\r\n");
+    serial_putstr("\r\n[NEOMACH] halting (cooperative scheduling only in Phase 1)\r\n");
     for (;;)
 #if defined(__aarch64__)
         __asm__ volatile ("wfi");

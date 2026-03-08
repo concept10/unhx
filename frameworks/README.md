@@ -9,7 +9,7 @@ NeXT/OpenStep framework layer — synthesized from available open-source impleme
 | `objc-runtime/` | Objective-C runtime (clang-compatible) | `gnustep/libobjc2` submodule |
 | `Foundation/`   | Foundation Kit — NSObject, collections, run loops | `gnustep/libs-base` submodule |
 | `AppKit/`       | Application Kit — UI framework | `gnustep/libs-gui` submodule |
-| `DisplayServer/`| DPS-inspired compositor (new code) | UNHOX original |
+| `DisplayServer/`| DPS-inspired compositor (new code) | NEOMACH original |
 
 ## Adding Submodules
 
@@ -21,7 +21,7 @@ git submodule update --init --recursive
 
 ## Phase 4 Deliverable
 
-A GNUstep Foundation application running natively on UNHOX userspace.
+A GNUstep Foundation application running natively on NEOMACH userspace.
 
 ## Phase 5 Deliverable
 

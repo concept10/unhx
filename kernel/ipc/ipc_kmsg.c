@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_kmsg.c — mach_msg() kernel entry point for UNHOX
+ * kernel/ipc/ipc_kmsg.c — mach_msg() kernel entry point for NEOMACH
  *
  * Implements the kernel-side send and receive operations that form the
  * backbone of all Mach IPC.

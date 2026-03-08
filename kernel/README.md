@@ -1,6 +1,6 @@
-# UNHOX Kernel
+# NEOMACH Kernel
 
-UNHOX implements a true microkernel following the original Mach design from
+NEOMACH implements a true microkernel following the original Mach design from
 Carnegie Mellon University (CMU, 1985–1990) and the Open Software Foundation
 (OSF MK series).
 
@@ -8,7 +8,7 @@ Carnegie Mellon University (CMU, 1985–1990) and the Open Software Foundation
 
 ### Kernel Minimality
 
-The UNHOX kernel implements **only** the following subsystems:
+The NEOMACH kernel implements **only** the following subsystems:
 
 1. **IPC (Mach Ports)** — the sole communication mechanism between all
    components, both in-kernel and in userspace.
@@ -21,7 +21,7 @@ The UNHOX kernel implements **only** the following subsystems:
 Everything else — BSD personality, filesystems, device drivers, networking —
 lives in **userspace servers** that communicate with each other and with the
 kernel exclusively through Mach IPC.  This is the fundamental distinction
-between UNHOX and monolithic kernels such as Linux, and between UNHOX and
+between NEOMACH and monolithic kernels such as Linux, and between NEOMACH and
 hybrid kernels such as XNU (macOS/iOS), which collapsed BSD back into the
 kernel for performance.  We will not repeat that mistake without a measured
 benchmark proving it is necessary.

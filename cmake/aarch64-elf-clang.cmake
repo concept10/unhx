@@ -1,4 +1,4 @@
-# cmake/aarch64-elf-clang.cmake — Cross-compilation toolchain for UNHOX (AArch64)
+# cmake/aarch64-elf-clang.cmake — Cross-compilation toolchain for NEOMACH (AArch64)
 #
 # Builds an AArch64 freestanding ELF kernel from any host (including arm64 macOS).
 #

@@ -23,5 +23,5 @@ Varies — OSF/RI license for OSF portions; see individual file headers.
 
 - [ ] NORMA IPC — distributed port model
 - [ ] RT extensions — deadline scheduling
-- [ ] SMP locking model — reference for UNHOX SMP support
-- [ ] OSF/1 BSD server — reference for UNHOX BSD server
+- [ ] SMP locking model — reference for NEOMACH SMP support
+- [ ] OSF/1 BSD server — reference for NEOMACH BSD server

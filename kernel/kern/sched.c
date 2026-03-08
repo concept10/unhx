@@ -1,5 +1,5 @@
 /*
- * kernel/kern/sched.c — Round-robin scheduler for UNHOX (Phase 1)
+ * kernel/kern/sched.c — Round-robin scheduler for NEOMACH (Phase 1)
  *
  * See sched.h for design rationale and Phase 2 TODO markers.
  *

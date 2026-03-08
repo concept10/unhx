@@ -1,5 +1,5 @@
 /*
- * kernel/include/mach/mach_types.h — Core Mach 3.0 type definitions for UNHOX
+ * kernel/include/mach/mach_types.h — Core Mach 3.0 type definitions for NEOMACH
  *
  * Reference: Accetta et al., "Mach: A New Kernel Foundation for UNIX
  *            Development", USENIX Summer Conference, 1986.

@@ -1,5 +1,5 @@
 /*
- * kernel/platform/paging.h — x86-64 4-level paging for UNHOX
+ * kernel/platform/paging.h — x86-64 4-level paging for NEOMACH
  *
  * Implements the Intel/AMD 4-level page table hierarchy:
  *

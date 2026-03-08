@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_mqueue.h — Per-port message queue for UNHOX
+ * kernel/ipc/ipc_mqueue.h — Per-port message queue for NEOMACH
  *
  * The message queue sits inside each ipc_port and holds incoming messages
  * for the port's receiver to consume.  In CMU Mach, the message queue is

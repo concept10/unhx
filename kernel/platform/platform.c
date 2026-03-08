@@ -1,6 +1,6 @@
 /*
  * kernel/platform/platform.c — x86-64 hardware abstraction initialisation
- *                               and early serial console for UNHOX
+ *                               and early serial console for NEOMACH
  *
  * Implements platform_init(), serial_putchar(), and serial_putstr().
  * The serial port (COM1 at I/O base 0x3F8) is the only output mechanism

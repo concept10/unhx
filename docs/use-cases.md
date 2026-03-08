@@ -1,6 +1,6 @@
-# UNHOX Kernel — Use Cases, Platform Targets, and Limits
+# NEOMACH Kernel — Use Cases, Platform Targets, and Limits
 
-> **Document scope:** This document comprehensively describes the deployment scenarios the UNHOX
+> **Document scope:** This document comprehensively describes the deployment scenarios the NEOMACH
 > Mach microkernel is designed for, the processor and memory constraints it imposes, and concrete
 > examples of platforms — from embedded edge nodes to industrial PLCs to traditional desktops —
 > that are realistic targets.  It also honestly enumerates the current limits and what would need
@@ -29,7 +29,7 @@
 6. [IPC Throughput Limits](#6-ipc-throughput-limits)
 7. [Scheduling Limits](#7-scheduling-limits)
 8. [What the Kernel Deliberately Does NOT Do](#8-what-the-kernel-deliberately-does-not-do)
-9. [Decision Guide: Is UNHOX Right for My Project?](#9-decision-guide-is-unhox-right-for-my-project)
+9. [Decision Guide: Is NEOMACH Right for My Project?](#9-decision-guide-is-neomach-right-for-my-project)
 10. [Platform Examples](#10-platform-examples)
     - 10.1 [x86-64 Desktop / Workstation](#101-x86-64-desktop--workstation)
     - 10.2 [ARM Cortex-A (Raspberry Pi, BeagleBone, NXP i.MX)](#102-arm-cortex-a-raspberry-pi-beaglebone-nxp-imx)
@@ -50,7 +50,7 @@ Traditional monolithic kernels (Linux, FreeBSD) couple all OS services — sched
 networking, device drivers — into a single privileged binary.  A fault in any driver crashes the
 whole system.  A security vulnerability in any driver becomes a kernel-level exploit.
 
-UNHOX follows the **Mach microkernel** discipline: the kernel provides only four primitives, and
+NEOMACH follows the **Mach microkernel** discipline: the kernel provides only four primitives, and
 everything else runs as ordinary (fault-isolated) userspace processes communicating over Mach
 ports.  This makes the kernel:
 
@@ -62,14 +62,14 @@ ports.  This makes the kernel:
 | **Portable core** | Platform code is <5% of the kernel; the rest is architecture-independent C |
 | **Configurable personality** | Run BSD servers for POSIX, run IEC 61131-3 servers for PLC I/O, run AUTOSAR servers for automotive — same kernel binary, different servers |
 
-These properties make UNHOX an unusually good fit for **safety-critical, mixed-criticality, and
+These properties make NEOMACH an unusually good fit for **safety-critical, mixed-criticality, and
 resource-constrained** environments, *not just* desktop use.
 
 ---
 
 ## 2. The Four Kernel Invariants
 
-Regardless of deployment domain, the UNHOX kernel exposes exactly four primitives:
+Regardless of deployment domain, the NEOMACH kernel exposes exactly four primitives:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -81,7 +81,7 @@ Regardless of deployment domain, the UNHOX kernel exposes exactly four primitive
 ```
 
 Everything above this line is a **server** — a userspace program communicating through IPC.
-This means the kernel binary is the *same* whether UNHOX is running a full NeXT-heritage desktop
+This means the kernel binary is the *same* whether NEOMACH is running a full NeXT-heritage desktop
 or a headless real-time PLC runtime.  Only the servers launched at boot differ.
 
 ---
@@ -92,7 +92,7 @@ or a headless real-time PLC runtime.  Only the servers launched at boot differ.
 
 **Status:** Primary development target (Phase 1–5 roadmap).
 
-The UNHOX full stack (BSD server + VFS + networking + NeXT/GNUstep frameworks) runs on x86-64
+The NEOMACH full stack (BSD server + VFS + networking + NeXT/GNUstep frameworks) runs on x86-64
 and AArch64 workstations as a complete NeXT-heritage desktop OS.  This is the scenario described
 in the main [README](../README.md) and [roadmap](roadmap.md).
 
@@ -110,7 +110,7 @@ teaching OS design.
 
 **Status:** Realistic after Phase 2 (BSD server + networking).
 
-Because every UNHOX personality server is an ordinary userspace process, it is straightforward to
+Because every NEOMACH personality server is an ordinary userspace process, it is straightforward to
 build a minimal "headless" server image: kernel + BSD server + network server + VFS server, without
 any display or desktop components.
 
@@ -121,7 +121,7 @@ any display or desktop components.
 
 **Cloud example:**
 ```
-UNHOX VM (qemu/kvm guest)
+NEOMACH VM (qemu/kvm guest)
   ├── kernel (Mach)
   ├── bootstrap server
   ├── network server  ← virtio-net driver
@@ -136,8 +136,8 @@ UNHOX VM (qemu/kvm guest)
 
 **Status:** Kernel architecture is compatible; embedded profile server set is future work.
 
-Mach was originally designed to run on machines with 4–8 MB of RAM.  UNHOX inherits that DNA.
-A minimal UNHOX kernel — IPC + minimal VM + task/thread — fits comfortably on systems with:
+Mach was originally designed to run on machines with 4–8 MB of RAM.  NEOMACH inherits that DNA.
+A minimal NEOMACH kernel — IPC + minimal VM + task/thread — fits comfortably on systems with:
 
 - **32 MB RAM** (kernel only, no BSD server)
 - **64 MB RAM** (kernel + minimal device + bootstrap servers)
@@ -177,9 +177,9 @@ ports (see `kernel/platform/aarch64/`).
 **Status:** Realistic after Phase 2; AArch64 port enables this path.
 
 Edge computing places computation close to data sources: industrial sensors, smart cameras,
-smart meters, agricultural monitoring.  UNHOX's properties are well-suited:
+smart meters, agricultural monitoring.  NEOMACH's properties are well-suited:
 
-| UNHOX Property | Edge Benefit |
+| NEOMACH Property | Edge Benefit |
 |----------------|-------------|
 | Fault isolation | A crashing sensor-driver server cannot corrupt the aggregation pipeline |
 | Port-based capabilities | Fine-grained, auditable access control for each data stream |
@@ -192,7 +192,7 @@ smart meters, agricultural monitoring.  UNHOX's properties are well-suited:
   [Sensor B]──────┤   ┌──────────────────────────────────────┐
   [Sensor C]──────┴──►│  Edge Gateway (ARM Cortex-A, RISC-V) │
                        │  ┌──────────────────────────────────┐│
-                       │  │ UNHOX                            ││
+                       │  │ NEOMACH                            ││
                        │  │  sensor-collector server         ││
                        │  │  pre-processing server           ││
                        │  │  MQTT/CoAP network server        ││
@@ -215,12 +215,12 @@ smart meters, agricultural monitoring.  UNHOX's properties are well-suited:
 **Status:** Architectural design required; kernel changes needed.
 
 Mach was not originally a hard-RTOS kernel, but the OSF MK series added real-time extensions
-(MK++ / CHORUS MiX) that gave bounded interrupt latency and priority-ceiling mutexes.  UNHOX
+(MK++ / CHORUS MiX) that gave bounded interrupt latency and priority-ceiling mutexes.  NEOMACH
 can follow that path.
 
 #### What is needed for hard real-time?
 
-| Requirement | UNHOX Status | Work Required |
+| Requirement | NEOMACH Status | Work Required |
 |-------------|-------------|---------------|
 | Bounded interrupt latency | Not yet guaranteed | Disable preemption windows, audit all spinlock sections |
 | Priority-based preemptive scheduling | Phase 2 (basic priority) | Add priority-ceiling / priority-inheritance |
@@ -231,19 +231,19 @@ can follow that path.
 
 #### Realistic RTOS profile
 
-A realistic "soft real-time" UNHOX profile (millisecond-order latency) is achievable with
+A realistic "soft real-time" NEOMACH profile (millisecond-order latency) is achievable with
 Phase 2 work.  Hard real-time (microsecond-order, POSIX `SCHED_FIFO`-equivalent) requires the
 additional work listed above.
 
 **Approach — Asymmetric Multiprocessing (AMP):**
 On multi-core SoCs (Cortex-A + Cortex-M heterogeneous, or multi-core A-class with core
-partitioning), UNHOX can dedicate one core to a hard-RT domain and run the general-purpose
+partitioning), NEOMACH can dedicate one core to a hard-RT domain and run the general-purpose
 Mach stack on the remaining cores.  Mach IPC over shared memory provides the cross-domain
 channel.  This mirrors the approach used by QNX Neutrino on NXP i.MX and the AUTOSAR CP/AP
 split.
 
 ```
-Core 0 (Hard RT)          Cores 1–N (UNHOX Mach)
+Core 0 (Hard RT)          Cores 1–N (NEOMACH Mach)
 ┌────────────────┐         ┌────────────────────────────┐
 │ RT Task        │  Mach   │ Mach kernel                │
 │ (deterministic │◄──IPC──►│ device server              │
@@ -260,9 +260,9 @@ Core 0 (Hard RT)          Cores 1–N (UNHOX Mach)
 A PLC runtime executes IEC 61131-3 programs (Ladder Diagram, Structured Text, Function Block
 Diagram, etc.) in a deterministic scan cycle against physical I/O.
 
-UNHOX's capability-based isolation model maps naturally to PLC concepts:
+NEOMACH's capability-based isolation model maps naturally to PLC concepts:
 
-| PLC Concept | UNHOX Equivalent |
+| PLC Concept | NEOMACH Equivalent |
 |-------------|-----------------|
 | I/O module | Device server holding SEND rights to hardware I/O ports |
 | PLC program task | Mach task with SEND rights only to permitted I/O ports |
@@ -274,7 +274,7 @@ UNHOX's capability-based isolation model maps naturally to PLC concepts:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│  IEC 61131-3 PLC Runtime (UNHOX target profile)                      │
+│  IEC 61131-3 PLC Runtime (NEOMACH target profile)                      │
 ├─────────────────────────────────────────────┬────────────────────────┤
 │  PLC Program Task 1 (e.g. safety interlock) │  PLC Program Task 2    │
 │  (holds send-rights to permitted I/O only)  │  (motion control)      │
@@ -316,7 +316,7 @@ For a vPLC, the I/O device server replaces hardware I/O with a simulated model:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Virtual PLC on UNHOX                                           │
+│  Virtual PLC on NEOMACH                                           │
 ├────────────────────────────────────────────────────────────────-┤
 │  PLC Program Task (IEC 61131-3 interpreter or compiled LD/ST)   │
 ├─────────────────────────────────────────────────────────────────┤
@@ -330,7 +330,7 @@ For a vPLC, the I/O device server replaces hardware I/O with a simulated model:
 Because vPLC timing need not be cycle-accurate to microseconds, the Phase 2 soft-RT scheduler
 is sufficient.  The vPLC use case could be prototyped earlier than the hardware PLC target.
 
-**Integration opportunity:** Run UNHOX vPLC inside a QEMU VM on a standard Linux CI server to
+**Integration opportunity:** Run NEOMACH vPLC inside a QEMU VM on a standard Linux CI server to
 execute PLC unit tests as part of a standard Git-triggered pipeline.
 
 ---
@@ -345,7 +345,7 @@ Each virtual machine is a Mach task with:
 - A device server acting as its virtual hardware (virtio, emulated UART, etc.)
 - IPC for hypercalls (replacing `vmcall` / `hvc` instructions)
 
-UNHOX is *not* designed as a hypervisor today, but the architecture does not prevent it.
+NEOMACH is *not* designed as a hypervisor today, but the architecture does not prevent it.
 Historical precedent: the OSF MK kernel was used as a hypervisor substrate for the
 Mach User-Level VMs ("UX" servers), and HURD's Hurd-on-Mach concept is a direct ancestor.
 
@@ -362,7 +362,7 @@ Mach User-Level VMs ("UX" servers), and HURD's Hurd-on-Mach concept is a direct 
 
 ### 4.2 Minimum Hardware Requirements
 
-The following are the *absolute minimums* for the UNHOX kernel to boot.  Server workloads
+The following are the *absolute minimums* for the NEOMACH kernel to boot.  Server workloads
 increase these requirements considerably.
 
 | Resource | Absolute Minimum (kernel only) | Practical Minimum (kernel + servers) |
@@ -387,7 +387,7 @@ The Phase 1 kernel targets 64-bit architectures because:
 The Mach VM subsystem is fundamentally page-table driven.  Without an MMU, task isolation
 (the core of Mach's security model) is impossible to enforce in hardware.  MMU-less
 microcontrollers (Cortex-M0/M0+/M3 without MPU, most 8-bit and 16-bit MCUs) are out of scope
-for a full UNHOX port.
+for a full NEOMACH port.
 
 The closest analogue for MMU-less environments is an MPU-based Mach-like kernel (similar to
 seL4 on Cortex-M with MPU), which would be a separate research project.
@@ -399,9 +399,9 @@ in C99 with no architecture assumptions beyond:
 
 - `uintptr_t` fits a virtual address
 - `atomic_flag` for spinlocks (C11 atomics)
-- A calling convention compatible with the UNHOX ABI
+- A calling convention compatible with the NEOMACH ABI
 
-To port UNHOX to a new architecture, implement the following in
+To port NEOMACH to a new architecture, implement the following in
 `kernel/platform/<new-arch>/`:
 
 | File | Responsibility |
@@ -461,7 +461,7 @@ the most performance-sensitive code in the kernel.
 | Large message (1024 B) | ~10–50 µs | Dominated by two 1 KB copies |
 | Context switch overhead | ~1–2 µs | Platform-dependent |
 
-*These are estimates.  The UNHOX design principle "Measure Before Compromising" requires
+*These are estimates.  The NEOMACH design principle "Measure Before Compromising" requires
 benchmarking on real hardware.  See `tests/ipc/ipc_perf.c`.*
 
 ### Comparison targets
@@ -472,10 +472,10 @@ benchmarking on real hardware.  See `tests/ipc/ipc_perf.c`.*
 | seL4 (verified) | ~300–500 ns |
 | QNX Neutrino | ~1–2 µs |
 | Mach 3.0 (original) | ~20–50 µs |
-| UNHOX Phase 1 (estimate) | ~1–5 µs |
-| UNHOX Phase 2 target | < 1 µs (zero-copy fast path) |
+| NEOMACH Phase 1 (estimate) | ~1–5 µs |
+| NEOMACH Phase 2 target | < 1 µs (zero-copy fast path) |
 
-Mach 3.0's IPC was notoriously slower than L4 due to copy semantics.  UNHOX Phase 2 will add
+Mach 3.0's IPC was notoriously slower than L4 due to copy semantics.  NEOMACH Phase 2 will add
 the L4-inspired zero-copy fast path for short messages, closing the gap significantly.
 
 ---
@@ -507,7 +507,7 @@ the L4-inspired zero-copy fast path for short messages, closing the gap signific
 
 ## 8. What the Kernel Deliberately Does NOT Do
 
-Understanding these exclusions is critical to correctly evaluating UNHOX for a deployment.
+Understanding these exclusions is critical to correctly evaluating NEOMACH for a deployment.
 
 | Capability | Why it is absent | Where it lives instead |
 |-----------|-----------------|------------------------|
@@ -522,16 +522,16 @@ Understanding these exclusions is critical to correctly evaluating UNHOX for a d
 | Dynamic linking | Userspace concern | Not yet implemented |
 
 **Implication for embedded / RTOS / PLC deployments:** You do *not* need a BSD server.  You
-do not need POSIX.  You can deploy UNHOX with only the servers your application requires,
+do not need POSIX.  You can deploy NEOMACH with only the servers your application requires,
 making the software stack dramatically smaller and more auditable than a Linux-based solution.
 
 ---
 
-## 9. Decision Guide: Is UNHOX Right for My Project?
+## 9. Decision Guide: Is NEOMACH Right for My Project?
 
 ```
 Does your target CPU have an MMU?
-    NO  →  UNHOX is not suitable.  Consider Zephyr, FreeRTOS, or seL4 on Cortex-M with MPU.
+    NO  →  NEOMACH is not suitable.  Consider Zephyr, FreeRTOS, or seL4 on Cortex-M with MPU.
    YES  →  Continue.
 
 Is your CPU 64-bit (x86-64 or AArch64)?
@@ -539,16 +539,16 @@ Is your CPU 64-bit (x86-64 or AArch64)?
    YES  →  Continue.
 
 Do you need hard real-time guarantees (< 10 µs latency)?
-   YES  →  UNHOX Phase 2+ with RT scheduler work is required.
+   YES  →  NEOMACH Phase 2+ with RT scheduler work is required.
             As an interim, consider AMP pairing with a Cortex-M/R bare-metal RT core.
     NO  →  Continue.
 
 Do you need IEC 61131-3 PLC compliance or SIL certification today?
-   YES  →  UNHOX is not yet suitable.  It is a research/prototype platform.
+   YES  →  NEOMACH is not yet suitable.  It is a research/prototype platform.
     NO  →  Continue.
 
 Do you want fault-isolated, capability-secured userspace services on a small footprint?
-   YES  →  UNHOX is well-suited.  Choose your server set from:
+   YES  →  NEOMACH is well-suited.  Choose your server set from:
             - bootstrap only (kernel tests / bringup)
             - bootstrap + device (embedded sensor node)
             - bootstrap + device + network (IoT gateway)
@@ -575,7 +575,7 @@ Do you want fault-isolated, capability-secured userspace services on a small foo
 # Build and run under QEMU (x86-64)
 cmake -S kernel -B build \
   -DCMAKE_TOOLCHAIN_FILE=$(pwd)/cmake/x86_64-elf-clang.cmake \
-  -DUNHOX_BOOT_TESTS=ON
+  -DNEOMACH_BOOT_TESTS=ON
 cmake --build build
 tools/run-qemu.sh
 ```
@@ -611,7 +611,7 @@ cmake --build build-aarch64
 # Test under QEMU (no physical board required)
 qemu-system-aarch64 \
   -machine virt -cpu cortex-a57 -nographic \
-  -kernel build-aarch64/unhox.elf
+  -kernel build-aarch64/neomach.elf
 ```
 
 **Embedded server set:** bootstrap + device (GPIO/I2C/SPI via `/dev/mem` until device server
@@ -627,13 +627,13 @@ is written) + optional network (lwIP).
 - Cortex-M does **not** have a full MMU — only an optional MPU (Memory Protection Unit).
 - Without an MMU, true Mach task isolation is hardware-enforced only at MPU granularity
   (8 or 16 regions, no per-page protection).
-- A full UNHOX port is **not** planned for Cortex-M.
+- A full NEOMACH port is **not** planned for Cortex-M.
 - A *research* lightweight variant using MPU regions instead of page tables would be a
   separate project (see [seL4 on Cortex-M](https://sel4.systems/Info/Hardware/cortexm.pml)
   for prior art).
 
 **Recommendation:** Use Zephyr RTOS (which supports Cortex-M with optional MPU isolation)
-for microcontroller targets.  UNHOX can act as the gateway/controller kernel on an adjacent
+for microcontroller targets.  NEOMACH can act as the gateway/controller kernel on an adjacent
 Cortex-A core in a heterogeneous SoC.
 
 ---
@@ -668,7 +668,7 @@ computing (JH7110) and server-class (SG2042) silicon.
 **Use case:** Custom hardware prototyping, FPGA-accelerated edge compute.
 
 **Viable path:** A RISC-V soft-core (e.g., VexRiscv, BOOM, CVA6) synthesized on an FPGA
-(Xilinx Zynq, Lattice ECP5) can run the RISC-V UNHOX port once it exists.  This enables
+(Xilinx Zynq, Lattice ECP5) can run the RISC-V NEOMACH port once it exists.  This enables
 tightly coupled hardware accelerators (in FPGA fabric) to be exposed as device-server
 endpoints over Mach IPC.
 
@@ -688,7 +688,7 @@ dedicated platform port.
 | Kontron KBox A-203 | ARM Cortex-A9 | Industrial gateway |
 | Phoenix Contact ILC 2050 | ARM Cortex-A9 | PROFINET PLC |
 
-**UNHOX fit:** Industrial PCs running x86-64 or AArch64 can boot UNHOX from a standard
+**NEOMACH fit:** Industrial PCs running x86-64 or AArch64 can boot NEOMACH from a standard
 UEFI bootloader.  The PLC runtime server set (§3.6) would replace the BSD/desktop stack.
 
 **Advantage over Linux-PREEMPT_RT (CODESYS, OpenPLC):** Kernel TCB is orders of magnitude
@@ -709,14 +709,14 @@ smaller; a PLC program bug cannot panic the kernel.
 | TI TDA4VM | 2× Cortex-A72 + 6× Cortex-R5F | ADAS + functional safety |
 | NXP i.MX 95 | 6× Cortex-A55 + Cortex-M33 | Zonal ECU |
 
-**UNHOX fit:**
-- The A-class cores run UNHOX (AArch64 port).
+**NEOMACH fit:**
+- The A-class cores run NEOMACH (AArch64 port).
 - The M/R-class cores run a hard-RT RTOS (FreeRTOS, SafeRTOS) for safety-critical loops.
 - Mach IPC over shared memory (inter-processor communication) bridges the two domains.
-- AUTOSAR Adaptive Platform personalities could be implemented as UNHOX servers.
+- AUTOSAR Adaptive Platform personalities could be implemented as NEOMACH servers.
 
 **Caveats:** Automotive-grade certification (ISO 26262 ASIL-B/D) requires formal
-verification of the kernel TCB — far beyond current project scope.  UNHOX would serve as
+verification of the kernel TCB — far beyond current project scope.  NEOMACH would serve as
 a research/prototype platform in this domain.
 
 ---
@@ -725,7 +725,7 @@ a research/prototype platform in this domain.
 
 | System | Kernel Type | RT Support | MMU Required | IPC Mechanism | Typical Use |
 |--------|------------|-----------|--------------|---------------|-------------|
-| **UNHOX** | Mach microkernel | Planned (Phase 2+) | Yes | Mach ports | Research OS, desktop, edge, embedded |
+| **NEOMACH** | Mach microkernel | Planned (Phase 2+) | Yes | Mach ports | Research OS, desktop, edge, embedded |
 | Linux (PREEMPT_RT) | Monolithic | Soft/hard RT patch | Yes | syscalls, sockets, pipes | Server, embedded, industrial |
 | QNX Neutrino | Microkernel | Hard RT | Yes | Mach-like messages | Automotive, medical, industrial |
 | seL4 | Microkernel (verified) | Hard RT possible | Yes (or MPU) | Synchronous IPC endpoints | Safety-critical, automotive, defense |
@@ -734,21 +734,21 @@ a research/prototype platform in this domain.
 | HURD | Mach microkernel | None | Yes | Mach ports | Research, GNU desktop |
 | GNU Mach | Mach microkernel | None | Yes | Mach ports | HURD substrate |
 
-**UNHOX's differentiator vs. GNU Mach / HURD:** Modern C99 codebase, clean-room implementation
+**NEOMACH's differentiator vs. GNU Mach / HURD:** Modern C99 codebase, clean-room implementation
 of the Mach ABI, NeXT/OpenStep framework integration, designed from the start with embedded
 and edge targets in mind.
 
-**UNHOX's differentiator vs. QNX:** Open-source (GPL-2.0+), full-stack NeXT heritage, not
+**NEOMACH's differentiator vs. QNX:** Open-source (GPL-2.0+), full-stack NeXT heritage, not
 commercially licensed.
 
-**UNHOX's differentiator vs. seL4:** Not formally verified (a research target, not a
+**NEOMACH's differentiator vs. seL4:** Not formally verified (a research target, not a
 certified product); far more developer-accessible; full POSIX personality available.
 
 ---
 
 ## 12. Roadmap for Non-Desktop Targets
 
-The items below are required before UNHOX can be seriously deployed in non-desktop domains.
+The items below are required before NEOMACH can be seriously deployed in non-desktop domains.
 They are listed in rough priority order.
 
 | Item | Domain Enabled | Estimated Phase |

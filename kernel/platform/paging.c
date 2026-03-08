@@ -1,5 +1,5 @@
 /*
- * kernel/platform/paging.c — x86-64 4-level paging for UNHOX
+ * kernel/platform/paging.c — x86-64 4-level paging for NEOMACH
  *
  * Sets up the kernel's page tables with:
  *   - Identity mapping of the first 4 MB (needed while still executing from
