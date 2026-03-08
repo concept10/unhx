@@ -146,6 +146,16 @@ Receive errors:
 This format is intentionally compatible with the CMU Mach 3.0 and XNU message
 layouts. Existing MIG definitions and Mach documentation should apply directly.
 
+## Implementation Checklist
+
+- [x] `[phase:1]` `[component:ipc]` Define `mach_msg_header_t` in `kernel/include/mach/mach_types.h`
+- [x] `[phase:1]` `[component:ipc]` Implement inline-body send/receive in `kernel/ipc/ipc_kmsg.c`
+- [x] `[phase:1]` `[component:ipc]` Enforce max inline size (1024 bytes) and return `MACH_SEND_TOO_LARGE`
+- [ ] `[phase:1]` `[layer:L1]` `[component:ipc]` Write `tests/unit/ipc/test_mach_msg.c` — header field preservation
+- [ ] `[phase:2]` `[component:ipc]` Implement complex message descriptors (`MACH_MSGH_BITS_COMPLEX`)
+- [ ] `[phase:2]` `[component:ipc]` Implement out-of-line memory descriptor (`mach_msg_ool_descriptor_t`)
+- [ ] `[phase:2]` `[component:ipc]` Implement port descriptor right-transfer (`mach_msg_port_descriptor_t`)
+
 ## References
 
 - Accetta et al., "Mach: A New Kernel Foundation for UNIX Development" (1986)
