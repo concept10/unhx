@@ -92,7 +92,7 @@ Check off items as they are completed.
 - [x] Write `kernel/ipc/ipc_port.c` — Mach port creation and lifecycle
 - [x] Write `kernel/ipc/ipc_space.c` — per-task port name space
 - [x] Write `kernel/ipc/ipc_right.c` — port right management
-- [x] Write `kernel/ipc/ipc_mqueue.c` — message queue with blocking
+- [x] Write `kernel/ipc/ipc_mqueue.c` — message queue (non-blocking Phase 1; blocking receive/wakeup in Phase 2)
 - [x] Write `kernel/ipc/ipc_kmsg.c` — kernel message allocation
 - [x] Write `kernel/ipc/mach_msg.c` — `mach_msg()` trap (combined send+receive, L4-inspired)
 - [x] Write `tests/ipc/ipc_roundtrip_test.c` — two-task message-passing test
@@ -106,7 +106,7 @@ Check off items as they are completed.
 - [x] Write `tests/ipc/ipc_perf.c` — null Mach message round-trip benchmark
 - [ ] Run benchmark under QEMU and record baseline
 - [ ] Run benchmark on bare metal (when available) and record
-- [x] Document results in `docs/research/ipc-performance.md`
+- [ ] Document results in `docs/research/ipc-performance.md` (TBD: populate after QEMU run)
 
 ---
 

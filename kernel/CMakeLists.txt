@@ -118,6 +118,7 @@ target_include_directories(unhx.elf PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers
     ${CMAKE_CURRENT_SOURCE_DIR}/../tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 target_compile_options(unhx.elf PRIVATE

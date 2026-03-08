@@ -75,7 +75,12 @@ static inline uint64_t rdtsc(void)
 {
 #if defined(__x86_64__) || defined(__i386__)
     uint32_t lo, hi;
-    __asm__ volatile ("rdtsc" : "=a"(lo), "=d"(hi));
+    /*
+     * Use lfence before rdtsc to serialize instruction execution and prevent
+     * out-of-order reads from distorting the measured interval.
+     * lfence ensures all prior loads complete before the TSC is read.
+     */
+    __asm__ volatile ("lfence; rdtsc" : "=a"(lo), "=d"(hi) :: "memory");
     return ((uint64_t)hi << 32) | lo;
 #else
     /* Non-x86: return a monotonic counter placeholder */
@@ -95,16 +100,21 @@ typedef struct {
 /* -------------------------------------------------------------------------
  * ipc_perf_null_roundtrip
  *
- * Measures the elapsed TSC cycles for N null-message round-trips using
- * the direct kernel send/receive path (no syscall overhead in Phase 1 since
- * we run in kernel context).
+ * Measures the elapsed TSC cycles for N null-message round-trips.
  *
- * The measurement captures the minimum kernel IPC path:
- *   send (lock space → check right → enqueue kmsg → unlock space)
- *   receive (lock space → check right → dequeue kmsg → unlock space)
+ * A "round-trip" is the complete request+reply cycle:
+ *   1. task_b sends a null request to task_a (enqueue on a's receive port)
+ *   2. task_a receives the request
+ *   3. task_a sends a null reply to task_b (enqueue on b's receive port)
+ *   4. task_b receives the reply
  *
- * In a full system (Phase 2+) the syscall entry/exit and context switch
- * would add additional overhead.  Phase 1 establishes the floor.
+ * This matches the standard IPC micro-benchmark used in the L4 performance
+ * literature: both the send path and the return path are measured, giving
+ * the true round-trip cost.
+ *
+ * In a full system (Phase 2+) each step is a syscall + possible context
+ * switch.  Phase 1 measures only the in-kernel enqueue/dequeue overhead,
+ * establishing the theoretical floor.
  * ------------------------------------------------------------------------- */
 struct ipc_perf_result
 ipc_perf_null_roundtrip(uint32_t iterations)
@@ -124,47 +134,86 @@ ipc_perf_null_roundtrip(uint32_t iterations)
         return r;
     }
 
-    /* task_a gets the receive right; task_b gets a send right */
-    mach_port_name_t rcv_name;
-    kern_return_t kr = ipc_right_alloc_receive(task_a, &rcv_name,
+    /* task_a: receive right for requests; task_b: send right to task_a */
+    mach_port_name_t rcv_name_a;
+    kern_return_t kr = ipc_right_alloc_receive(task_a, &rcv_name_a,
                                                (void *)0, 1);
     if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
 
-    mach_port_name_t snd_name;
-    kr = ipc_right_copy_send(task_a, rcv_name, task_b, &snd_name);
+    mach_port_name_t snd_to_a;
+    kr = ipc_right_copy_send(task_a, rcv_name_a, task_b, &snd_to_a);
     if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
 
-    /* Pre-allocate the send buffer once */
-    null_msg_t send_msg;
-    kmemset(&send_msg, 0, sizeof(send_msg));
-    send_msg.hdr.msgh_bits        = MACH_MSGH_BITS(MACH_PORT_RIGHT_SEND, 0);
-    send_msg.hdr.msgh_size        = sizeof(send_msg);
-    send_msg.hdr.msgh_remote_port = snd_name;
-    send_msg.hdr.msgh_local_port  = MACH_PORT_NULL;
-    send_msg.hdr.msgh_id          = 0;
+    /* task_b: receive right for replies; task_a: send right to task_b */
+    mach_port_name_t rcv_name_b;
+    kr = ipc_right_alloc_receive(task_b, &rcv_name_b,
+                                 (void *)0, 1);
+    if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
 
-    null_msg_t recv_msg;
+    mach_port_name_t snd_to_b;
+    kr = ipc_right_copy_send(task_b, rcv_name_b, task_a, &snd_to_b);
+    if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
 
-    /* Warm-up: 8 iterations to populate caches */
+    /* Pre-build null request and reply message headers */
+    null_msg_t req_msg;
+    kmemset(&req_msg, 0, sizeof(req_msg));
+    req_msg.hdr.msgh_bits        = MACH_MSGH_BITS(MACH_PORT_RIGHT_SEND, 0);
+    req_msg.hdr.msgh_size        = sizeof(req_msg);
+    req_msg.hdr.msgh_remote_port = snd_to_a;
+    req_msg.hdr.msgh_local_port  = MACH_PORT_NULL;
+    req_msg.hdr.msgh_id          = 0;
+
+    null_msg_t rep_msg;
+    kmemset(&rep_msg, 0, sizeof(rep_msg));
+    rep_msg.hdr.msgh_bits        = MACH_MSGH_BITS(MACH_PORT_RIGHT_SEND, 0);
+    rep_msg.hdr.msgh_size        = sizeof(rep_msg);
+    rep_msg.hdr.msgh_remote_port = snd_to_b;
+    rep_msg.hdr.msgh_local_port  = MACH_PORT_NULL;
+    rep_msg.hdr.msgh_id          = 0;
+
+    null_msg_t recv_a, recv_b;
+
+    /* Warm-up: 8 iterations to populate instruction and data caches */
     for (uint32_t i = 0; i < 8; i++) {
-        mach_msg_send(task_b, &send_msg.hdr, sizeof(send_msg));
+        /* Request: B → A */
+        kr = mach_msg_send(task_b, &req_msg.hdr, sizeof(req_msg));
+        if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
         mach_msg_size_t sz = 0;
-        mach_msg_receive(task_a, rcv_name, &recv_msg, sizeof(recv_msg), &sz);
+        kr = mach_msg_receive(task_a, rcv_name_a, &recv_a, sizeof(recv_a), &sz);
+        if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
+        /* Reply: A → B */
+        kr = mach_msg_send(task_a, &rep_msg.hdr, sizeof(rep_msg));
+        if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
+        sz = 0;
+        kr = mach_msg_receive(task_b, rcv_name_b, &recv_b, sizeof(recv_b), &sz);
+        if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
     }
 
     /* Timed measurement */
     uint64_t t_start = rdtsc();
 
     for (uint32_t i = 0; i < iterations; i++) {
-        send_msg.hdr.msgh_id = (mach_msg_id_t)i;
+        req_msg.hdr.msgh_id = (mach_msg_id_t)(2 * i);
+        rep_msg.hdr.msgh_id = (mach_msg_id_t)(2 * i + 1);
 
-        kr = mach_msg_send(task_b, &send_msg.hdr, sizeof(send_msg));
+        /* Request: B → A */
+        kr = mach_msg_send(task_b, &req_msg.hdr, sizeof(req_msg));
         if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
 
         mach_msg_size_t sz = 0;
-        kmemset(&recv_msg, 0, sizeof(recv_msg));
-        kr = mach_msg_receive(task_a, rcv_name,
-                              &recv_msg, sizeof(recv_msg), &sz);
+        kmemset(&recv_a, 0, sizeof(recv_a));
+        kr = mach_msg_receive(task_a, rcv_name_a,
+                              &recv_a, sizeof(recv_a), &sz);
+        if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
+
+        /* Reply: A → B */
+        kr = mach_msg_send(task_a, &rep_msg.hdr, sizeof(rep_msg));
+        if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
+
+        sz = 0;
+        kmemset(&recv_b, 0, sizeof(recv_b));
+        kr = mach_msg_receive(task_b, rcv_name_b,
+                              &recv_b, sizeof(recv_b), &sz);
         if (kr != KERN_SUCCESS) { r.error = 1; goto cleanup; }
     }
 
@@ -175,8 +224,9 @@ ipc_perf_null_roundtrip(uint32_t iterations)
         (iterations > 0) ? (r.total_cycles / iterations) : 0;
 
 cleanup:
-    task_destroy(task_b);
+    /* Destroy task_a before task_b: task_b holds a send right to task_a's port */
     task_destroy(task_a);
+    task_destroy(task_b);
     return r;
 }
 

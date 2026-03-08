@@ -17,8 +17,8 @@
 
 #ifdef UNHOX_BOOT_TESTS
 #include "tests/ipc_test.h"
-#include "ipc/ipc_roundtrip_test.h"
-#include "ipc/ipc_perf.h"
+#include "tests/ipc/ipc_roundtrip_test.h"
+#include "tests/ipc/ipc_perf.h"
 #endif
 
 /* Serial output (platform layer) */

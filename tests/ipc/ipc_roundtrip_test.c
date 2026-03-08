@@ -8,11 +8,11 @@
  *   2. ipc_right_copy_send     — send right distribution to a second task
  *   3. mach_msg_send           — message send from the holder of the send right
  *   4. mach_msg_receive        — message receive by the holder of the receive right
- *   5. mach_msg_trap           — combined send+receive (RPC pattern)
+ *   5. mach_msg_trap           — combined SEND|RCV in one call (RPC pattern)
  *   6. ipc_right_deallocate    — right lifecycle / cleanup
  *   7. Security: send without a right fails
  *   8. Security: receive without a right fails
- *   9. ipc_right_make_send_once — send-once right creation and consumption
+ *   9. (send-once testing reserved for Phase 2 ipc_right_make_send_once)
  *  10. ipc_right_transfer       — move a right between tasks
  *
  * The test is designed to be compiled as part of the kernel (freestanding)
@@ -233,7 +233,64 @@ static void test_rpc_pattern(struct task *kernel_task)
     kr = mach_msg_send(server, &reply.hdr, sizeof(reply));
     rt_assert("server: send reply", kr == KERN_SUCCESS);
 
-    /* Client uses mach_msg_trap (MACH_RCV_MSG only here since msg sent above) */
+    /*
+     * Pre-stage a second reply on the queue so we can test the combined
+     * SEND|RCV path.  The combined call sends a new request and receives
+     * the already-queued reply in one mach_msg_trap() call.
+     */
+    struct rt_msg req2;
+    kmemset(&req2, 0, sizeof(req2));
+    req2.hdr.msgh_bits        = MACH_MSGH_BITS(MACH_PORT_RIGHT_SEND, 0);
+    req2.hdr.msgh_size        = sizeof(req2);
+    req2.hdr.msgh_remote_port = server_snd_port;
+    req2.hdr.msgh_local_port  = MACH_PORT_NULL;
+    req2.hdr.msgh_id          = 2003;
+    req2.seq   = 44;
+    req2.magic = RT_MAGIC;
+    kstrncpy(req2.payload, "req2", sizeof(req2.payload));
+
+    /* Stage a reply for req2 on the reply port */
+    struct rt_msg reply2;
+    kmemset(&reply2, 0, sizeof(reply2));
+    reply2.hdr.msgh_bits        = MACH_MSGH_BITS(MACH_PORT_RIGHT_SEND, 0);
+    reply2.hdr.msgh_size        = sizeof(reply2);
+    reply2.hdr.msgh_remote_port = reply_snd_in_server;
+    reply2.hdr.msgh_local_port  = MACH_PORT_NULL;
+    reply2.hdr.msgh_id          = 2004;
+    reply2.seq   = 45;
+    reply2.magic = RT_MAGIC;
+    kstrncpy(reply2.payload, "reply2-ok", sizeof(reply2.payload));
+    kr = mach_msg_send(server, &reply2.hdr, sizeof(reply2));
+    rt_assert("server: pre-stage reply2", kr == KERN_SUCCESS);
+
+    /*
+     * Test combined SEND|RCV: client sends req2 AND receives the
+     * pre-staged reply2 in one mach_msg_trap() call.
+     *
+     * mach_msg_trap() uses the same `msg` buffer for both send and receive:
+     * - On entry: msg contains the request to send (send_size bytes)
+     * - On return: msg is overwritten with the received reply
+     *
+     * Phase 1: non-blocking — works because the reply is already queued.
+     * Phase 2: will block waiting for the reply if not yet available.
+     */
+    /*
+     * Use req2 as the combined send/receive buffer.  After the call,
+     * req2.hdr will contain the received reply.
+     */
+    mach_msg_size_t combined_sz = 0;
+    kr = mach_msg_trap(client,
+                       MACH_SEND_MSG | MACH_RCV_MSG,
+                       &req2.hdr,
+                       sizeof(req2),
+                       sizeof(req2),
+                       client_reply_port,
+                       &combined_sz);
+    rt_assert("client: mach_msg_trap SEND|RCV succeeds", kr == KERN_SUCCESS);
+    rt_assert("client: combined recv magic correct", req2.magic == RT_MAGIC);
+    rt_assert("client: combined recv seq correct",   req2.seq == 45);
+
+    /* Client receives the first reply (non-combined) */
     struct rt_msg cli_recv;
     mach_msg_size_t cli_sz = 0;
     kmemset(&cli_recv, 0, sizeof(cli_recv));
@@ -251,8 +308,11 @@ static void test_rpc_pattern(struct task *kernel_task)
               kstrcmp(cli_recv.payload, "reply-ok") == 0);
 
 cleanup2:
-    if (server) task_destroy(server);
+    /* Destroy client before server: client holds a send right to server_port.
+     * If server is destroyed first, the port is freed while client's ipc_space
+     * still references it, causing a use-after-free during client teardown. */
     if (client) task_destroy(client);
+    if (server) task_destroy(server);
 }
 
 /* -------------------------------------------------------------------------

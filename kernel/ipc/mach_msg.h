@@ -59,10 +59,18 @@ kern_return_t mach_msg_trap(struct task *task,
 /*
  * mach_msg_rpc — synchronous send+receive RPC helper.
  *
- * Sends request to the port in request->msgh_remote_port and immediately
- * blocks for a reply on reply_port.
+ * Sends a request to the port in request->msgh_remote_port and then issues
+ * a receive on reply_port for the reply.
  *
- * This is the L4 "IPC call" pattern: one kernel entry for a full round-trip.
+ * Phase 1 semantics: the underlying mach_msg_receive() is non-blocking, so
+ * mach_msg_rpc returns immediately with an error if no reply is queued on
+ * reply_port.
+ *
+ * Planned Phase 2 semantics: mach_msg_receive() (and thus mach_msg_rpc) will
+ * block waiting for a reply, matching traditional blocking RPC behavior.
+ *
+ * This follows the L4 "IPC call" pattern: one kernel entry for a full
+ * round-trip, once full blocking semantics are implemented.
  */
 kern_return_t mach_msg_rpc(struct task *task,
                             mach_msg_header_t *request,
