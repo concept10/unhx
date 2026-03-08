@@ -20,3 +20,8 @@ _codeql_detected_source_root
 *.swo
 *~
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
