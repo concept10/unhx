@@ -1,0 +1,115 @@
+# .github/workflows/rfc-process.yml — UNHOX RFC lifecycle automation
+#
+# Provides two jobs:
+#
+#   rfc-lint
+#     Triggered on every pull request that touches docs/rfcs/RFC-[0-9]*.md.
+#     Validates RFC structure, status field, and Implementation Checklist
+#     item format using .github/scripts/rfc_lint.py.
+#     Fails the PR if any RFC file does not conform to the format defined in
+#     docs/rfcs/README.md.
+#
+#   rfc-issue-sync
+#     Triggered on every push to main that touches docs/rfcs/RFC-[0-9]*.md.
+#     For each changed RFC file whose Status is "Accepted", parses the
+#     Implementation Checklist and creates a GitHub Issue for every unchecked
+#     item that does not yet have a corresponding issue.
+#     Labels: rfc-task, phase:N, component:name, [layer:LN]
+#     Agents and contributors pick up work by filtering on the "rfc-task" label.
+
+name: RFC Process
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/rfcs/RFC-[0-9]*.md'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/rfcs/RFC-[0-9]*.md'
+
+jobs:
+
+  # ── RFC Lint ──────────────────────────────────────────────────────────────
+  # Validates every RFC file changed in the pull request.
+  # See .github/scripts/rfc_lint.py for the rules applied.
+  rfc-lint:
+    name: Lint RFC
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need the base branch to diff against
+          fetch-depth: 0
+
+      - name: Identify changed RFC files
+        id: changed
+        run: |
+          files=$(git diff --name-only \
+                    "origin/${{ github.base_ref }}...HEAD" \
+                    -- 'docs/rfcs/RFC-[0-9]*.md' || true)
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          if [ -z "$files" ]; then
+            echo "No RFC files changed in this PR."
+          else
+            echo "Changed RFC files:"
+            echo "$files"
+          fi
+
+      - name: Lint changed RFC files
+        if: steps.changed.outputs.files != ''
+        run: |
+          # Word-split is intentional here: RFC filenames never contain spaces.
+          # shellcheck disable=SC2086
+          python3 .github/scripts/rfc_lint.py ${{ steps.changed.outputs.files }}
+
+  # ── RFC Issue Sync ────────────────────────────────────────────────────────
+  # Runs after every push to main that changes an RFC file.
+  # Creates GitHub Issues from the Implementation Checklist of Accepted RFCs.
+  # Agents pick up issues labelled "rfc-task".
+  rfc-issue-sync:
+    name: Sync RFC checklist to GitHub Issues
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Identify changed RFC files
+        id: changed
+        run: |
+          files=$(git diff --name-only HEAD~1 HEAD \
+                    -- 'docs/rfcs/RFC-[0-9]*.md' || true)
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          if [ -z "$files" ]; then
+            echo "No RFC files changed in this push."
+          else
+            echo "Changed RFC files:"
+            echo "$files"
+          fi
+
+      - name: Sync checklist items to GitHub Issues
+        if: steps.changed.outputs.files != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for rfc_file in ${{ steps.changed.outputs.files }}; do
+            if [ -f "$rfc_file" ]; then
+              python3 .github/scripts/rfc_sync_issues.py "$rfc_file"
+            fi
+          done
