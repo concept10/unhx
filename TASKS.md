@@ -174,7 +174,7 @@ Check off items as they are completed.
 
 ## Phase 5 — Audio Subsystem
 
-Design reference: `docs/rfcs/RFC-0002-audio-subsystem.md` and
+Design reference: `docs/rfcs/RFC-0005-audio-subsystem.md` and
 `docs/audio-server-design.md`.
 
 ### Kernel — Real-Time Scheduling (`SCHED_RT`)
@@ -234,7 +234,7 @@ These are the only kernel changes the audio subsystem requires.
       any task can create a virtual source or destination
 - [ ] Implement `midi_route.c` — routing table: source port → set of
       destination ports; timestamped event forwarding
-  - Message ID range: 8300–8499 (see RFC-0002 §Message ID Ranges)
+  - Message ID range: 8300–8499 (see RFC-0005 §Message ID Ranges)
 - [ ] Write `servers/midi/midi_mig.h` — all MIDI Server message structs
 - [ ] Write unit test: create two virtual endpoints; send 100 MIDI note-on
       events; verify all arrive with correct timestamps
@@ -319,7 +319,7 @@ These are the only kernel changes the audio subsystem requires.
 
 ### Documentation
 
-- [x] Write `docs/rfcs/RFC-0002-audio-subsystem.md` — audio architecture RFC
+- [x] Write `docs/rfcs/RFC-0005-audio-subsystem.md` — audio architecture RFC
 - [x] Write `docs/audio-server-design.md` — comprehensive design document
 - [x] Update `docs/architecture.md` — add audio/MIDI tier to stack diagram
 - [ ] Write `servers/audio/README.md` — Audio Server overview and build instructions

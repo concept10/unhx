@@ -465,5 +465,5 @@ servers):
 - USB Device Class Definition for Audio Devices Rev 2.0 (2009, usb.org)
 - Intel High Definition Audio Specification Rev 1.0a (2010)
 - UNHOX RFC-0001: IPC Message Format (`docs/rfcs/RFC-0001-ipc-message-format.md`)
-- UNHOX RFC-0002: Audio Subsystem Architecture (`docs/rfcs/RFC-0002-audio-subsystem.md`)
+- UNHOX RFC-0005: Audio Subsystem Architecture (`docs/rfcs/RFC-0005-audio-subsystem.md`)
 - UNHOX BSD Server Design (`docs/bsd-server-design.md`)

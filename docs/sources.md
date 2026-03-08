@@ -50,7 +50,7 @@ licensing information.
 ## Audio Subsystem References (not mirrored)
 
 The following external specifications and documentation are referenced by the
-audio subsystem design (`docs/audio-server-design.md`, RFC-0002) but are not
+audio subsystem design (`docs/audio-server-design.md`, RFC-0005) but are not
 included in the repository.
 
 | Reference | URL | License |
