@@ -19,6 +19,7 @@
 #include "tests/ipc_test.h"
 #include "tests/ipc/ipc_roundtrip_test.h"
 #include "tests/ipc/ipc_perf.h"
+#include "tests/bsd/bsd_server_test.h"
 #endif
 
 /* Serial output and platform initialisation (platform layer) */
@@ -27,6 +28,10 @@ extern void serial_putstr(const char *s);
 
 /* Bootstrap server entry (Phase 1: kernel-internal) */
 extern void bootstrap_main(void);
+
+/* BSD personality server (Phase 2: kernel-internal) */
+extern void bsd_server_init(void);
+extern void bsd_server_main(void);
 
 void kern_init(void)
 {
@@ -82,6 +87,14 @@ void kernel_main(void)
     serial_putstr("\r\n");
     bootstrap_main();
 
+    /*
+     * BSD personality server (Phase 2: kernel-internal)
+     * Initialises the process table and demonstrates fork/exec/exit/wait.
+     */
+    serial_putstr("\r\n");
+    bsd_server_init();
+    bsd_server_main();
+
 #ifdef NEOMACH_BOOT_TESTS
     /*
      * Formal IPC milestone test (Prompt 8 — v0.2):
@@ -109,6 +122,19 @@ void kernel_main(void)
      */
     serial_putstr("\r\n");
     ipc_perf_run();
+
+    /*
+     * BSD server test suite:
+     * Tests fork, exec, exit, wait, signals, and file descriptors.
+     */
+    serial_putstr("\r\n");
+    int bsd_result = bsd_server_test_run();
+
+    if (bsd_result == 0) {
+        serial_putstr("\r\n[NEOMACH] BSD server tests PASSED.\r\n");
+    } else {
+        serial_putstr("\r\n[NEOMACH] BSD server tests FAILED.\r\n");
+    }
 #endif
 
     /* Halt — preemptive scheduler loop goes here in Phase 2 */
