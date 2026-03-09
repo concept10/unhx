@@ -1,6 +1,6 @@
-# UNHOX Task List
+# Neomach Task List
 
-Actionable tasks for the UNHOX project, organized by phase.
+Actionable tasks for the Neomach project, organized by phase.
 Check off items as they are completed.
 
 ---
@@ -63,7 +63,7 @@ Check off items as they are completed.
 - [ ] Write `kernel/platform/x86_64/idt.c` — Interrupt Descriptor Table
 - [ ] Write `kernel/platform/x86_64/pmap.c` — 4-level page table management
 - [ ] Write `kernel/platform/x86_64/uart.c` — 16550 serial console driver
-- [ ] Verify: kernel boots under QEMU and prints "UNHOX" via serial
+- [ ] Verify: kernel boots under QEMU and prints "Neomach" via serial
 - [ ] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test
 
 ### Physical Memory
@@ -128,7 +128,7 @@ Check off items as they are completed.
 - [ ] Verify: BSD server can open and read `/bin/sh` from ramfs
 
 ### Shell
-- [ ] Port `dash` (Debian Almquist Shell) to UNHOX
+- [ ] Port `dash` (Debian Almquist Shell) to Neomach
 - [ ] Verify milestone v0.5: shell prompt appears
 
 ---
@@ -156,19 +156,19 @@ Check off items as they are completed.
 ## Phase 4 — Framework Layer
 
 ### Objective-C Runtime
-- [ ] Build `frameworks/objc-runtime/` (libobjc2 submodule) for UNHOX userspace
+- [ ] Build `frameworks/objc-runtime/` (libobjc2 submodule) for Neomach userspace
 - [ ] Resolve any POSIX threading dependencies
-- [ ] Verify: simple Objective-C program compiles and runs on UNHOX
+- [ ] Verify: simple Objective-C program compiles and runs on Neomach
 
 ### GNUstep Foundation
-- [ ] Build `frameworks/Foundation/` (libs-base submodule) for UNHOX
+- [ ] Build `frameworks/Foundation/` (libs-base submodule) for Neomach
 - [ ] Port NSThread to use Mach thread primitives directly
 - [ ] Port NSRunLoop to use Mach port notification
-- [ ] Verify milestone v0.7: GNUstep Foundation app runs on UNHOX
+- [ ] Verify milestone v0.7: GNUstep Foundation app runs on Neomach
 
 ### libdispatch (GCD)
 - [ ] Build libdispatch with Mach port integration
-- [ ] Verify: `dispatch_async` works on UNHOX
+- [ ] Verify: `dispatch_async` works on Neomach
 
 ---
 
@@ -225,7 +225,7 @@ These are the only kernel changes the audio subsystem requires.
 
 - [ ] Scaffold `servers/midi/` with `CMakeLists.txt` (userspace, links Mach stubs)
 - [ ] Implement `midi_server.c` — main event loop; register
-      `com.unhox.midi.server` with Bootstrap Server
+      `com.neomach.midi.server` with Bootstrap Server
 - [ ] Implement `midi_device.c` — query Device Server for USB MIDI devices;
       create source/destination port pairs per physical port
 - [ ] Implement `midi_uart.c` — legacy MPU-401 UART MIDI driver (for x86
@@ -246,7 +246,7 @@ These are the only kernel changes the audio subsystem requires.
 ### Audio Server (`servers/audio/`)
 
 - [ ] Scaffold `servers/audio/` with `CMakeLists.txt`
-- [ ] Implement `audio_server.c` — main(): register `com.unhox.audio.server`
+- [ ] Implement `audio_server.c` — main(): register `com.neomach.audio.server`
       with Bootstrap Server; spawn management thread and RT I/O thread
 - [ ] Implement `audio_device.c` — enumerate audio devices from Device Server;
       maintain logical device table; handle hot-plug notifications
@@ -320,12 +320,12 @@ These are the only kernel changes the audio subsystem requires.
 ### Plugin Format Compatibility Bridges
 
 The AU design is structurally equivalent to AUv3 (out-of-process, task-isolated).
-Bridges allow VST, LV2, CLAP, and other format plugins to run as UNHOX AUs.
+Bridges allow VST, LV2, CLAP, and other format plugins to run as Neomach AUs.
 See `docs/rfcs/RFC-0005-audio-subsystem.md §Plugin Format Compatibility Bridges`
 for the full architecture.
 
 - [ ] Implement `servers/audio/lv2_bridge/lv2_bridge.c` — LV2 host wrapper (ISC)
-  - `LV2_Descriptor` instantiate → UNHOX AU render loop
+  - `LV2_Descriptor` instantiate → Neomach AU render loop
   - Atom event port → `au_midi_event_msg` translation
 - [ ] Implement `servers/audio/clap_bridge/clap_bridge.c` — CLAP wrapper (MIT)
   - `clap_plugin_t` process → `au_render_request` mapping
@@ -335,7 +335,7 @@ for the full architecture.
   - MIDI events via `au_midi_event_msg`
 - [ ] Implement `servers/audio/vst3_bridge/vst3_bridge.cpp` — VST3 wrapper (optional C++)
   - `IAudioProcessor::process()` per render request
-  - Enabled by `UNHOX_ENABLE_VST3_BRIDGE` CMake option
+  - Enabled by `NEOMACH_ENABLE_VST3_BRIDGE` CMake option
 - [ ] Integration test: load LV2 Calf Compressor via bridge; render 1 s; no xruns
 - [ ] Integration test: load CLAP plugin via bridge; verify parameter automation round-trip
 
@@ -354,8 +354,8 @@ for the full architecture.
 
 ## Phase 6 — Desktop
 
-- [ ] Prototype UNHOX Display Server (DPS-inspired, Mach IPC native)
-- [ ] Build AppKit (libs-gui) with UNHOX display server backend
+- [ ] Prototype Neomach Display Server (DPS-inspired, Mach IPC native)
+- [ ] Build AppKit (libs-gui) with Neomach display server backend
 - [ ] Port GWorkspace as Workspace Manager
 - [ ] Verify milestone v1.0: NeXT-heritage desktop boots
 
@@ -379,11 +379,11 @@ for the full architecture.
   - Alternative (Debian/Ubuntu): `sudo apt-get install qemu-system-x86_64 gcc-multilib grub-pc-bin grub-efi-amd64-bin xorriso`
   - Alternative (Fedora/RHEL): `sudo dnf install qemu-system-x86 grub2-tools xorriso`
   - Alternative (macOS/Homebrew): `brew install x86_64-elf-gcc qemu xorriso`
-- [ ] Write minimal Multiboot2 kernel stub that prints "UNHOX" via serial
+- [ ] Write minimal Multiboot2 kernel stub that prints "Neomach" via serial
 - [ ] Create `tools/qemu-run.sh`:
   ```sh
   qemu-system-x86_64 \
-    -kernel kernel/build/unhox-kernel \
+    -kernel kernel/build/neomach-kernel \
     -serial stdio \
     -display none \
     -m 256M \

@@ -1,6 +1,6 @@
 # Source Inventory & Licenses
 
-Complete inventory of all external sources used in UNHOX, with provenance and
+Complete inventory of all external sources used in Neomach, with provenance and
 licensing information.
 
 ## Kernel References (archive/)
@@ -41,9 +41,9 @@ licensing information.
 
 ### Notes on Framework Licenses
 
-- **libobjc2** (MIT): No restrictions on use in UNHOX.
+- **libobjc2** (MIT): No restrictions on use in Neomach.
 - **GNUstep Base/GUI** (LGPL-2.1): Must be dynamically linked or provide
-  object files for relinking. UNHOX servers will link these as shared libraries.
+  object files for relinking. Neomach servers will link these as shared libraries.
 - **libdispatch / CoreFoundation** (Apache-2.0): Permissive. Must retain
   copyright notices and license text.
 
@@ -69,8 +69,8 @@ included in the repository.
 | LV2 Core Specification | https://lv2plug.in | ISC |
 
 No code from Apple's Core Audio, Core MIDI, or Audio Unit implementations is
-copied into UNHOX.  These documents are consulted only for API design
-inspiration.  The UNHOX Audio Server, MIDI Server, and Audio Units framework
+copied into Neomach.  These documents are consulted only for API design
+inspiration.  The Neomach Audio Server, MIDI Server, and Audio Units framework
 are original implementations using Mach IPC as their sole transport.
 
 The Steinberg VST2 SDK is referenced for the frozen `AEffect` struct ABI only;
@@ -79,10 +79,10 @@ dependency for the VST3 bridge component and is fetched at build time under its
 GPL v3 licence.  CLAP and LV2 SDKs are MIT and ISC respectively and may be
 included as build dependencies.
 
-## UNHOX Original Code
+## Neomach Original Code
 
-All original UNHOX code (kernel, servers, build system, documentation) is
-authored by the UNHOX project contributors. License TBD — expected to be a
+All original Neomach code (kernel, servers, build system, documentation) is
+authored by the Neomach project contributors. License TBD — expected to be a
 permissive license (MIT or BSD-2-Clause).
 
 ## XNU Reference (not mirrored)

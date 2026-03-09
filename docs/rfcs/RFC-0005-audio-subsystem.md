@@ -1,7 +1,7 @@
-# RFC-0005: Audio Subsystem — Core Audio, Core MIDI, and Audio Units for UNHOX
+# RFC-0005: Audio Subsystem — Core Audio, Core MIDI, and Audio Units for Neomach
 
 - **Status**: Proposed
-- **Author**: UNHOX Project
+- **Author**: Neomach Project
 - **Date**: 2026-03-06
 - **Phase**: 5
 - **Supersedes**: none
@@ -10,7 +10,7 @@
 ## Summary
 
 This RFC proposes the architecture for Core Audio-equivalent, Core MIDI-equivalent,
-and Audio Units functionality in UNHOX.  Following strict Mach microkernel discipline,
+and Audio Units functionality in Neomach.  Following strict Mach microkernel discipline,
 **no audio logic lives in the kernel**.  An Audio Server and a MIDI Server run as
 ordinary userspace tasks and communicate with hardware drivers, each other, and client
 applications exclusively through Mach port IPC.  The Audio Units plugin framework
@@ -52,7 +52,7 @@ architecture level before implementation begins:
    when an Audio Unit task dies.
 
 This RFC documents the design decisions that satisfy all three requirements within
-UNHOX's Mach architecture, and explicitly identifies which other pending RFCs and
+Neomach's Mach architecture, and explicitly identifies which other pending RFCs and
 PRs must land first.
 
 ## Dependencies on Other Pending RFCs and PRs
@@ -88,7 +88,7 @@ are required.  Tracked in PR #8 (IPC Architecture).
 
 ### AUDIO-IMP-4 — Bootstrap Server Port Lookup (identical to IPC-IMP-4 in PR #9)
 
-Clients must look up `com.unhox.audio.server` and `com.unhox.midi.server` at
+Clients must look up `com.neomach.audio.server` and `com.neomach.midi.server` at
 runtime via the Bootstrap Server.
 
 **Implementation**: `servers/bootstrap/` (Phase 1, tracked in TASKS.md).
@@ -112,11 +112,11 @@ directly to the audio server's threat model.
 ```
 Client Application
     │
-    │  mach_msg(com.unhox.audio.server)
+    │  mach_msg(com.neomach.audio.server)
     ▼
 Audio Server                  (userspace, SCHED_RT I/O thread)
     │
-    ├── MIDI Server           (com.unhox.midi.server)
+    ├── MIDI Server           (com.neomach.midi.server)
     ├── Audio Unit tasks      (per-plugin tasks, OOL buffers)
     └── Device Server         (HDA / USB audio / virtio-sound drivers)
     │
@@ -229,7 +229,7 @@ protocol (see `docs/audio-server-design.md` for full struct definitions).
 
 ### Audio Unit Design Lineage and AUv3 Compatibility
 
-The UNHOX Audio Unit model is derived from Apple's Audio Unit plug-in API,
+The Neomach Audio Unit model is derived from Apple's Audio Unit plug-in API,
 which has gone through three major versions:
 
 | Version | Era | Hosting model | IPC |
@@ -238,7 +238,7 @@ which has gone through three major versions:
 | **AU v2** | Mac OS X 10.2–macOS 12 (2002–2021) | In-process Core Audio bundle (`AudioComponent`) | n/a (direct function call) |
 | **AU v3** | iOS 9 / macOS 10.11+ (2015–present) | **Out-of-process App Extension**; XPC rendezvous | XPC (Mach IPC layer) |
 
-**UNHOX Audio Units are structurally equivalent to AUv3**, not AU v2:
+**Neomach Audio Units are structurally equivalent to AUv3**, not AU v2:
 
 - Every third-party AU runs in a **separate Mach task** — analogous to the
   XPC Extension process that hosts an AUv3 plugin on macOS.
@@ -249,15 +249,15 @@ which has gone through three major versions:
 
 The functional differences from AUv3:
 
-- **No App Extensions container**: UNHOX has no `NSExtension` bundle or app
+- **No App Extensions container**: Neomach has no `NSExtension` bundle or app
   store sandboxing.  Plugins are plain Mach tasks registered with the Bootstrap
-  Server under a well-known name (`com.unhox.au.<vendor>.<name>`).
+  Server under a well-known name (`com.neomach.au.<vendor>.<name>`).
 - **No XPC**: The transport is native Mach IPC rather than XPC (which is just
   a Mach-based serialisation layer).  This removes one serialisation layer and
   reduces latency.
 - **AUv3 binary compatibility** is a future goal (see Open Questions §6), not
   part of this RFC.  A thin AUv3 compatibility wrapper task that bridges
-  `AudioUnitRemote` XPC calls to UNHOX AU Mach IPC is feasible but deferred.
+  `AudioUnitRemote` XPC calls to Neomach AU Mach IPC is feasible but deferred.
 
 **SCHED_RT as a catalyst for a dedicated kernel RFC.**  The `SCHED_RT`
 real-time scheduling policy (AUDIO-IMP-5) is a first-class kernel feature
@@ -281,11 +281,11 @@ Until RFC-0006 is opened and accepted, the `SCHED_RT` gate condition
 
 ### Plugin Format Compatibility Bridges (VST2, VST3, AAX)
 
-UNHOX Audio Units can host third-party plugins written for other plugin
+Neomach Audio Units can host third-party plugins written for other plugin
 formats through **bridge tasks**.  Each bridge is a separate Mach task that:
 
 1. Loads the native plugin binary using the platform dynamic linker.
-2. Exposes a standard UNHOX AU render loop and Mach port set.
+2. Exposes a standard Neomach AU render loop and Mach port set.
 3. Translates between the native plugin SDK calls and the
    `au_render_request` / `au_midi_event_msg` / `au_set_param_msg` IPC
    messages defined in §Audio Units above.
@@ -303,10 +303,10 @@ calls `VSTPluginMain()`, allocates an `AEffect`, and wraps it:
 │  vst2_bridge task             │
 │  ├── dlopen(plugin.vst2.so)  │
 │  ├── AEffect *effect = …     │
-│  ├── processReplacing()      │  ← called each UNHOX AU render request
-│  └── UNHOX AU render loop   │  ← translates mach_msg ↔ VST2 C calls
+│  ├── processReplacing()      │  ← called each Neomach AU render request
+│  └── Neomach AU render loop   │  ← translates mach_msg ↔ VST2 C calls
 └──────────────────────────────┘
-         │  UNHOX AU IPC (8500–8799)
+         │  Neomach AU IPC (8500–8799)
          ▼
     Audio Server
 ```
@@ -328,9 +328,9 @@ VST3 SDK (GPL v3 / Steinberg dual licence):
 │  ├── VST3 factory: IPluginFactory → IComponent + IAudioProcessor│
 │  ├── IAudioProcessor::process() ← render request              │
 │  ├── IEditController  ← parameter get/set                     │
-│  └── UNHOX AU render loop  ← translates mach_msg ↔ VST3 C++  │
+│  └── Neomach AU render loop  ← translates mach_msg ↔ VST3 C++  │
 └─────────────────────────────────────────────────────────────────┘
-         │  UNHOX AU IPC (8500–8799)
+         │  Neomach AU IPC (8500–8799)
          ▼
     Audio Server
 ```
@@ -338,7 +338,7 @@ VST3 SDK (GPL v3 / Steinberg dual licence):
 File: `servers/audio/vst3_bridge/vst3_bridge.cpp` (C++ required by VST3 SDK).
 
 A C++ compiler and the Steinberg VST3 SDK must be present in the build tree.
-The bridge is an **optional component** gated on `UNHOX_ENABLE_VST3_BRIDGE`
+The bridge is an **optional component** gated on `NEOMACH_ENABLE_VST3_BRIDGE`
 in CMake.
 
 #### AAX (Avid Audio eXtension — Pro Tools)
@@ -353,7 +353,7 @@ in this repository** without the SDK.  An implementation requires:
 - A separate out-of-tree repository, linked into the build as an optional
   external component.
 
-UNHOX documents the architecture here so that a licensed developer can build
+Neomach documents the architecture here so that a licensed developer can build
 the bridge without redesigning the audio server.
 
 #### LV2 (LADSPA Version 2 — Linux Audio)
@@ -364,13 +364,13 @@ LV2 is a strong candidate for the **first** bridge implementation:
 
 - No NDA or proprietary SDK required.
 - Many high-quality open-source plugins available (Calf, ZamaPlugins, x42).
-- Atom event port maps naturally to UNHOX MIDI event messages.
+- Atom event port maps naturally to Neomach MIDI event messages.
 
 File: `servers/audio/lv2_bridge/lv2_bridge.c`
 
 #### Plugin Bridge Architecture Summary
 
-| Format | SDK Licence | Binary ABI | UNHOX Bridge Status |
+| Format | SDK Licence | Binary ABI | Neomach Bridge Status |
 |--------|-------------|------------|---------------------|
 | LV2 | ISC (open) | C | Planned — Phase 5 |
 | VST2 | Steinberg Free | C | Planned — Phase 5 |
@@ -380,19 +380,19 @@ File: `servers/audio/lv2_bridge/lv2_bridge.c`
 
 CLAP (CLever Audio Plug-in API) is a recent open alternative to VST3
 (MIT licence, Bitwig/u-he/Surge) with a simpler C ABI and native
-process-isolation model that maps well to UNHOX tasks.
+process-isolation model that maps well to Neomach tasks.
 
 ### Port Naming Convention
 
-Bootstrap port names follow the same `com.unhox.*` convention used by the
+Bootstrap port names follow the same `com.neomach.*` convention used by the
 Display Server (PRs #9, #11):
 
 | Name | Server |
 |------|--------|
-| `com.unhox.audio.server` | Audio Server service port |
-| `com.unhox.midi.server` | MIDI Server service port |
-| `com.unhox.audio.default_output` | Default output stream port |
-| `com.unhox.audio.default_input` | Default input (mic) stream port |
+| `com.neomach.audio.server` | Audio Server service port |
+| `com.neomach.midi.server` | MIDI Server service port |
+| `com.neomach.audio.default_output` | Default output stream port |
+| `com.neomach.audio.default_input` | Default input (mic) stream port |
 
 ### Message ID Registry
 
@@ -422,7 +422,7 @@ The audio subsystem intersects with three other open PRs:
   the same four IPC gate conditions (AUDIO-IMP-1 through AUDIO-IMP-4 = IPC-IMP-1
   through IPC-IMP-4).  Implementing them once for the display server unblocks the
   audio server at no additional kernel cost.  The audio subsystem also reuses the
-  `com.unhox.*` bootstrap naming convention from PR #9.
+  `com.neomach.*` bootstrap naming convention from PR #9.
 
 - **PR #15 (Kernel Verification / RFC Process)**: The `SCHED_RT` scheduling policy
   required by the audio I/O thread is described at the kernel level in PR #15.
@@ -438,9 +438,9 @@ The audio subsystem intersects with three other open PRs:
 Move the audio mixing loop into the kernel to eliminate IPC round-trips.
 Rejected because:
 
-- It violates UNHOX's first design principle (kernel minimality).
+- It violates Neomach's first design principle (kernel minimality).
 - XNU collapsed the BSD server into the kernel and introduced severe bugs;
-  UNHOX must not repeat this for audio.
+  Neomach must not repeat this for audio.
 - IPC latency on Mach is typically < 20 µs on x86-64; at 128 frames / 48 kHz
   (2.67 ms period) this is well under 1 % of the budget.
 
@@ -476,7 +476,7 @@ SRC, output), rejected as the default model for third-party plugins, because:
 
 ### Alternative 4: Adopt PipeWire or JACK as the audio server
 
-Port PipeWire or JACK to UNHOX instead of implementing a new server.
+Port PipeWire or JACK to Neomach instead of implementing a new server.
 
 Rejected because:
 
@@ -517,11 +517,11 @@ Rejected because:
 6. **AUv3 binary compatibility**: Should a future AUv3 compatibility wrapper
    task be part of the Audio Units framework (`frameworks/AudioUnits/auv3_compat/`)
    or a separate plugin bridge (`servers/audio/auv3_bridge/`)?  AUv3 plugins
-   use XPC as transport on macOS; UNHOX would need a `libxpc` shim that maps
+   use XPC as transport on macOS; Neomach would need a `libxpc` shim that maps
    XPC calls to native Mach port messages.
 
 7. **VST3 C++ ABI**: The VST3 bridge (`vst3_bridge.cpp`) requires a C++ compiler
-   in the UNHOX build tree.  The kernel and servers are currently pure C.  Should
+   in the Neomach build tree.  The kernel and servers are currently pure C.  Should
    the plugin bridges be an optional component built by a separate C++ toolchain,
    or should the VST3 bridge expose only a C wrapper that can be compiled by the
    main Clang C driver?
@@ -643,9 +643,9 @@ All checklist items follow the format defined in `docs/rfcs/README.md` (PR #15).
 - Larsson, "LV2 Core Specification" (ISC) — https://lv2plug.in
 - Falkner, "Real-Time Audio in macOS and iOS: AUv3 Out-of-Process Plug-ins" (WWDC 2018, Session 507)
 - Levis, "Mixed Criticality Scheduling" in Lipari et al. (eds.) "Embedded Systems Design" (2011)
-- UNHOX RFC-0001: IPC Message Format (`docs/rfcs/RFC-0001-ipc-message-format.md`)
-- UNHOX PR #8: IPC Architecture implementation (ipc_right.c, mach_msg.c)
-- UNHOX PR #9: Display Server Alternatives RFC (IPC-IMP-1 through IPC-IMP-4 gate conditions)
-- UNHOX PR #11: Display Server Architecture RFC (message ID allocation precedent)
-- UNHOX PR #15: Kernel Functional Correctness RFC (SCHED_RT, verification layers L1–L4)
-- UNHOX `docs/audio-server-design.md` (full design detail companion document)
+- Neomach RFC-0001: IPC Message Format (`docs/rfcs/RFC-0001-ipc-message-format.md`)
+- Neomach PR #8: IPC Architecture implementation (ipc_right.c, mach_msg.c)
+- Neomach PR #9: Display Server Alternatives RFC (IPC-IMP-1 through IPC-IMP-4 gate conditions)
+- Neomach PR #11: Display Server Architecture RFC (message ID allocation precedent)
+- Neomach PR #15: Kernel Functional Correctness RFC (SCHED_RT, verification layers L1–L4)
+- Neomach `docs/audio-server-design.md` (full design detail companion document)

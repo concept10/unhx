@@ -1,10 +1,10 @@
-# UNHOX System Architecture
+# Neomach System Architecture
 
 ## Full Software Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│               UNHOX Full Software Stack                         │
+│               Neomach Full Software Stack                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  Workspace Manager  │  AppKit  │  Display Server (DPS)          │
 ├─────────────────────┼──────────┼────────────────────────────────┤
@@ -24,7 +24,7 @@
 
 ## Kernel/Server Split
 
-UNHOX maintains strict microkernel discipline. The boundary:
+Neomach maintains strict microkernel discipline. The boundary:
 
 **Inside the kernel (kernel/ directory):**
 - Mach port IPC (`kernel/ipc/`)

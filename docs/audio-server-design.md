@@ -1,6 +1,6 @@
 # Audio Server Architecture
 
-Design document for the UNHOX Audio Server, MIDI Server, and Audio Units
+Design document for the Neomach Audio Server, MIDI Server, and Audio Units
 framework — the components that provide Core Audio-equivalent functionality
 on top of the Mach microkernel.
 
@@ -11,7 +11,7 @@ threads.  All audio functionality — device I/O, mixing, effects processing,
 MIDI routing — is implemented by **userspace servers** and **framework tasks**
 that communicate exclusively via Mach ports.
 
-UNHOX follows the same split as NeXTSTEP / macOS Core Audio, but reimplemented
+Neomach follows the same split as NeXTSTEP / macOS Core Audio, but reimplemented
 in pure Mach IPC without any in-kernel shortcuts:
 
 ```
@@ -40,7 +40,7 @@ mechanisms.
 
 ### Audio Server (`servers/audio/`)
 
-The Audio Server is the HAL (Hardware Abstraction Layer) for UNHOX audio.
+The Audio Server is the HAL (Hardware Abstraction Layer) for Neomach audio.
 It owns:
 
 - **Device management**: enumerating audio hardware by querying the Device
@@ -68,7 +68,7 @@ The MIDI Server manages all MIDI I/O in the system:
 
 ### Audio Units (`frameworks/AudioUnits/`)
 
-Audio Units are the UNHOX plugin model.  Each unit is a userspace task
+Audio Units are the Neomach plugin model.  Each unit is a userspace task
 (untrusted third-party plugins) or a shared library loaded into the Audio
 Server's address space (trusted system units for lower latency).
 
@@ -139,8 +139,8 @@ and the Audio Unit task's address spaces with no data copy.
 
 ```
 Bootstrap Server
-   ├── "com.unhox.audio.server"  → Audio Server service port
-   └── "com.unhox.midi.server"   → MIDI Server service port
+   ├── "com.neomach.audio.server"  → Audio Server service port
+   └── "com.neomach.midi.server"   → MIDI Server service port
 
 Per client session (after AUDIO_OP_OPEN_OUTPUT):
    ├── stream_port   → client writes render-complete notifications here
@@ -368,16 +368,16 @@ with a silence generator for that bus.
 
 ## Plugin Format Compatibility Bridges
 
-UNHOX Audio Units are structurally equivalent to Apple AUv3 out-of-process
+Neomach Audio Units are structurally equivalent to Apple AUv3 out-of-process
 plug-ins: every third-party plugin runs in an isolated Mach task, the same
 isolation guarantee that AUv3 provides via XPC process sandboxing.  Each
-bridge task is an UNHOX AU that also speaks a foreign plugin SDK internally:
+bridge task is an Neomach AU that also speaks a foreign plugin SDK internally:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Plugin Bridge Task                                              │
 │  ┌────────────────────────┐    ┌──────────────────────────────┐  │
-│  │  Native SDK side       │    │  UNHOX AU side               │  │
+│  │  Native SDK side       │    │  Neomach AU side               │  │
 │  │  (VST2/VST3/LV2/CLAP) │◄──►│  au_render_port (IPC 8501)  │  │
 │  │  dlopen(plugin.so)    │    │  au_midi_port   (IPC 8601)  │  │
 │  │  process(buffer)      │    │  au_control_port(IPC 8701)  │  │
@@ -389,7 +389,7 @@ bridge task is an UNHOX AU that also speaks a foreign plugin SDK internally:
 
 LV2 plugins expose a C ABI (`LV2_Descriptor`) with atom event ports for
 MIDI.  The bridge initialises the plugin via `lv2_descriptor()->instantiate()`,
-maps the UNHOX OOL buffer as the audio port, and calls `run()` each render
+maps the Neomach OOL buffer as the audio port, and calls `run()` each render
 period.  Atom event packets translate directly to `au_midi_event_msg`.
 
 File: `servers/audio/lv2_bridge/lv2_bridge.c`
@@ -407,7 +407,7 @@ File: `servers/audio/vst2_bridge/vst2_bridge.c`
 VST3 uses a COM-like C++ interface (`IComponent`, `IAudioProcessor`).  The
 bridge links against the open-source Steinberg VST3 SDK (GPL v3 / dual).
 Because the SDK requires C++, the bridge is an **optional component** enabled
-by `UNHOX_ENABLE_VST3_BRIDGE` in CMake and compiled with `clang++`.
+by `NEOMACH_ENABLE_VST3_BRIDGE` in CMake and compiled with `clang++`.
 
 File: `servers/audio/vst3_bridge/vst3_bridge.cpp`
 
@@ -415,8 +415,8 @@ File: `servers/audio/vst3_bridge/vst3_bridge.cpp`
 
 CLAP (CLever Audio Plug-in API) has a clean C ABI similar to LV2 but with
 explicit parameter automation, thread-safety annotations, and a process-isolation
-model that maps directly to UNHOX tasks.  CLAP is the recommended starting point
-for new UNHOX-native plugin development.
+model that maps directly to Neomach tasks.  CLAP is the recommended starting point
+for new Neomach-native plugin development.
 
 File: `servers/audio/clap_bridge/clap_bridge.c`
 
@@ -543,6 +543,6 @@ servers):
 - USB Device Class Definition for MIDI Devices Rev 1.0 (1999, usb.org)
 - USB Device Class Definition for Audio Devices Rev 2.0 (2009, usb.org)
 - Intel High Definition Audio Specification Rev 1.0a (2010)
-- UNHOX RFC-0001: IPC Message Format (`docs/rfcs/RFC-0001-ipc-message-format.md`)
-- UNHOX RFC-0005: Audio Subsystem Architecture (`docs/rfcs/RFC-0005-audio-subsystem.md`)
-- UNHOX BSD Server Design (`docs/bsd-server-design.md`)
+- Neomach RFC-0001: IPC Message Format (`docs/rfcs/RFC-0001-ipc-message-format.md`)
+- Neomach RFC-0005: Audio Subsystem Architecture (`docs/rfcs/RFC-0005-audio-subsystem.md`)
+- Neomach BSD Server Design (`docs/bsd-server-design.md`)
