@@ -128,12 +128,12 @@ Check off items as they are completed.
 ## Phase 2 — System Servers
 
 ### BSD Server
-- [ ] Design BSD server IPC protocol (MIG or hand-written)
-- [ ] Implement `fork()` — clone task + address space
-- [ ] Implement `exec()` — load ELF binary into new address space
-- [ ] Implement `exit()` / `wait()` — process lifecycle
-- [ ] Implement signal delivery across task boundary
-- [ ] Implement file descriptor table (backed by VFS server)
+- [x] Design BSD server IPC protocol (MIG or hand-written)
+- [x] Implement `fork()` — clone task + address space
+- [x] Implement `exec()` — load ELF binary into new address space
+- [x] Implement `exit()` / `wait()` — process lifecycle
+- [x] Implement signal delivery across task boundary
+- [x] Implement file descriptor table (backed by VFS server)
 - [ ] Verify milestone v0.4: fork + exec + basic syscalls work
 
 ### VFS Server (ramfs)

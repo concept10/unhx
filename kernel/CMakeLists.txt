@@ -127,6 +127,12 @@ set(KERNEL_SOURCES
     # Bootstrap server (Phase 1: linked into kernel)
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/registry.c
+
+    # BSD personality server (Phase 2: linked into kernel)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/proc.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/signal.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/fd_table.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bsd/bsd_server.c
 )
 
 if(NEOMACH_BOOT_TESTS)
@@ -137,6 +143,7 @@ if(NEOMACH_BOOT_TESTS)
         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_ool_test.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_port_transfer_test.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_timeout_test.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/bsd/bsd_server_test.c
     )
     add_compile_definitions(NEOMACH_BOOT_TESTS=1)
 endif()
