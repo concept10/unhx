@@ -56,56 +56,70 @@ Check off items as they are completed.
 
 ---
 
-## Phase 1 — Kernel Core
+## Phase 1 — Kernel Core ✅ (2026-03-01)
 
-### x86-64 Platform Bring-up
-- [ ] Write `kernel/platform/x86_64/boot.S` — Multiboot2 entry point
-- [ ] Write `kernel/platform/x86_64/gdt.c` — Global Descriptor Table setup
-- [ ] Write `kernel/platform/x86_64/idt.c` — Interrupt Descriptor Table
-- [ ] Write `kernel/platform/x86_64/pmap.c` — 4-level page table management
-- [ ] Write `kernel/platform/x86_64/uart.c` — 16550 serial console driver
-- [ ] Verify: kernel boots under QEMU and prints "NEOMACH" via serial
-- [ ] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test
+### x86-64 Platform Bring-up ✅
+- [x] Write `kernel/platform/x86_64/boot.S` — Multiboot1 entry point (32-bit PM → 64-bit long mode)
+- [x] Write `kernel/platform/gdt.c` — Global Descriptor Table setup
+- [x] Write `kernel/platform/paging.c` — 4-level page table management (identity map + higher-half)
+- [x] Write `kernel/platform/platform.c` — NS16550 serial UART driver (COM1, 115200 baud)
+- [x] Write `kernel/platform/context_switch.S` — Cooperative context switch (callee-saved GPRs)
+- [x] Verified: kernel boots under QEMU and prints "NEOMACH" via serial (2026-03-01)
+- [ ] Write `tests/integration/boot/boot_test.sh` — QEMU boot smoke test (automated CI)
+- [ ] IDT setup and exception/interrupt handlers
+- [ ] APIC initialization (local APIC, IOAPIC)
 
-### Physical Memory
-- [ ] Write `kernel/vm/vm_page.c` — physical page frame allocator
-- [ ] Parse Multiboot memory map to initialize page allocator
+### AArch64 Platform Bring-up ✅ (partial)
+- [x] Write `kernel/platform/aarch64/boot.S` — QEMU virt boot entry (EL2→EL1)
+- [x] Write `kernel/platform/aarch64/platform.c` — PL011 UART driver
+- [x] Write `kernel/platform/aarch64/context_switch.S` — AArch64 cooperative context switch
+- [ ] MMU initialization (4-level translation tables)
+- [ ] GIC interrupt controller
+- [ ] SMP trampoline for additional CPUs
+
+### Physical Memory ✅
+- [x] Write `kernel/vm/vm_page.c` — physical page frame allocator
+- [x] Parse Multiboot memory map to initialize page allocator
 - [ ] Write unit test: allocate and free physical pages
 
-### Kernel Heap
-- [ ] Write `kernel/kern/kmem.c` — kernel heap allocator (simple slab or buddy)
+### Kernel Heap ✅
+- [x] Write `kernel/kern/kalloc.c` — kernel heap allocator (256 KB bump allocator)
 - [ ] Write unit test: allocate and free kernel objects
 
-### Tasks and Threads
-- [ ] Write `kernel/kern/task.c` — task create, terminate, reference counting
-- [ ] Write `kernel/kern/thread.c` — thread create, context save/restore
-- [ ] Write `kernel/platform/x86_64/context.S` — context switch assembly
-- [ ] Write `kernel/kern/sched.c` — basic round-robin scheduler
-- [ ] Verify: two threads run concurrently and print alternating output
+### Tasks and Threads ✅
+- [x] Write `kernel/kern/task.c` — task create, terminate, reference counting
+- [x] Write `kernel/kern/thread.c` — thread create, context save/restore
+- [x] Write `kernel/platform/context_switch.S` — context switch assembly
+- [x] Write `kernel/kern/sched.c` — cooperative round-robin scheduler (Phase 1)
+- [x] Verified: two tasks created and run (cooperative scheduling)
+- [ ] Preemptive scheduling — timer interrupt required (Phase 2)
+- [ ] Verify: two threads run concurrently with preemption (Phase 2)
 
-### Virtual Memory
-- [ ] Write `kernel/vm/vm_map.c` — per-task address space management
+### Virtual Memory ✅ (partial)
+- [x] Write `kernel/vm/vm_page.c` — physical page frame allocator
+- [x] Write `kernel/vm/vm_map.h` — per-task address space interface (Phase 1 stubs)
+- [ ] Write `kernel/vm/vm_map.c` — full address space management (Phase 2)
 - [ ] Write `kernel/vm/vm_object.c` — backing memory object lifecycle
 - [ ] Write `kernel/vm/vm_fault.c` — page fault handler
-- [ ] Verify: user task runs in its own address space
+- [ ] Verify: user task runs in its own address space (Phase 2)
 
-### IPC
-- [ ] Write `kernel/ipc/ipc_port.c` — Mach port creation and lifecycle
-- [ ] Write `kernel/ipc/ipc_space.c` — per-task port name space
-- [ ] Write `kernel/ipc/ipc_right.c` — port right management
-- [ ] Write `kernel/ipc/ipc_mqueue.c` — message queue with blocking
-- [ ] Write `kernel/ipc/ipc_kmsg.c` — kernel message allocation
-- [ ] Write `kernel/ipc/mach_msg.c` — `mach_msg()` trap
-- [ ] Write `tests/ipc/ipc_roundtrip_test.c` — two-task message-passing test
-- [ ] Verify milestone v0.2: two tasks pass a Mach message
+### IPC ✅
+- [x] Write `kernel/ipc/ipc_port.c` / `ipc.c` — Mach port creation and lifecycle
+- [x] Write `kernel/ipc/ipc_space.c` / `ipc.c` — per-task port name space
+- [x] Write `kernel/ipc/ipc_right.c` — port right management
+- [x] Write `kernel/ipc/ipc_mqueue.c` — message queue (non-blocking, Phase 1)
+- [x] Write `kernel/ipc/ipc_kmsg.c` — kernel message allocation
+- [x] Write `kernel/ipc/mach_msg.c` — `mach_msg()` trap
+- [x] Write `tests/ipc/ipc_roundtrip_test.c` — two-task message-passing test
+- [x] Verified milestone v0.2: two tasks pass a Mach message — 13/13 tests PASS ✅
 
-### Bootstrap Server
-- [ ] Write `kernel/kern/bootstrap.c` — initial service registration
-- [ ] Verify milestone v0.3: bootstrap server registers device and BSD servers
+### Bootstrap Server ✅
+- [x] Write `servers/bootstrap/bootstrap.c` — service registration and port lookup
+- [x] Verified milestone v0.3: bootstrap server registers and looks up services ✅
 
-### IPC Performance Baseline
-- [ ] Write `tests/ipc/ipc_perf.c` — null Mach message round-trip benchmark
-- [ ] Run benchmark under QEMU and record baseline
+### IPC Performance Baseline ✅
+- [x] Write `tests/ipc/ipc_perf.c` — null Mach message round-trip benchmark (TSC-based)
+- [x] Run benchmark under QEMU
 - [ ] Run benchmark on bare metal (when available) and record
 - [ ] Document results in `docs/research/ipc-performance.md`
 
@@ -220,22 +234,19 @@ Check off items as they are completed.
 - [ ] Create contributor guide in `CONTRIBUTING.md`
 - [ ] Write license inventory in `docs/sources.md`
 
-### Kernel for QEMU Testing (near-term action)
-- [ ] Set up dev environment — recommended: `nix develop` (see `tools/README.md`)
-  - Alternative (Debian/Ubuntu): `sudo apt-get install qemu-system-x86_64 gcc-multilib grub-pc-bin grub-efi-amd64-bin xorriso`
-  - Alternative (Fedora/RHEL): `sudo dnf install qemu-system-x86 grub2-tools xorriso`
-  - Alternative (macOS/Homebrew): `brew install x86_64-elf-gcc qemu xorriso`
-- [ ] Write minimal Multiboot2 kernel stub that prints "NEOMACH" via serial
-- [ ] Create `tools/qemu-run.sh`:
+### Kernel for QEMU Testing ✅
+- [x] Set up dev environment — `nix develop` (see `tools/README.md`) or Homebrew LLVM
+- [x] Write minimal Multiboot1 kernel stub — boots via QEMU and prints "NEOMACH" via serial
+- [x] Create `tools/run-qemu.sh` and `tools/qemu-run.sh`:
   ```sh
   qemu-system-x86_64 \
-    -kernel kernel/build/neomach-kernel \
+    -kernel build/neomach.elf \
     -serial stdio \
     -display none \
-    -m 256M \
+    -m 64M \
     -no-reboot
   ```
-- [ ] Test kernel stub boots and produces expected serial output
+- [x] Test kernel stub boots and produces expected serial output (2026-03-01)
 - [ ] Pull GNU Mach source as local reference:
   ```sh
   git clone https://git.savannah.gnu.org/git/hurd/gnumach.git archive/gnu-mach-ref

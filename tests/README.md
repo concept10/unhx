@@ -22,20 +22,35 @@ make -C tests/unit
 ./tests/scripts/run-all.sh
 ```
 
-## Phase 1 Test Plan
+## Phase 1 Test Status ✅
 
-- [ ] Boot kernel under QEMU and verify serial output
-- [ ] Create two tasks and verify they run
-- [ ] Pass a Mach message between two tasks and verify receipt
-- [ ] Verify IPC port right lifecycle (create, transfer, destroy)
-- [ ] Verify VM map create/destroy
+- [x] Boot kernel under QEMU and verify serial output *(2026-03-01)*
+- [x] Create two tasks and verify they run
+- [x] Pass a Mach message between two tasks and verify receipt *(13/13 tests PASS)*
+- [ ] Automated `tests/integration/boot/boot_test.sh` — QEMU boot smoke test (CI)
+- [ ] Verify IPC port right lifecycle (create, transfer, destroy) — unit test
+- [ ] Verify VM map create/destroy — unit test
 
-## IPC Performance Benchmark (Phase 1+)
+## IPC Tests (`tests/ipc/`)
+
+| File | Status | Description |
+|------|--------|-------------|
+| `ipc_roundtrip_test.c` | ✅ Done | Two-task message-passing correctness test — 5 scenarios |
+| `ipc_perf.c` | ✅ Done | Null Mach message round-trip benchmark (TSC-based) |
+
+## IPC Performance Benchmark
 
 The proposal specifically calls out measuring IPC performance on modern hardware
-before making any architectural compromises. The benchmark will:
+before making any architectural compromises. The benchmark:
 
-1. Measure round-trip latency for a null Mach message (synchronous send+receive)
-2. Compare against HURD/GNU Mach baseline
-3. Compare against Linux `pipe()` round-trip (not a fair comparison, but useful reference)
-4. Profile where cycles are spent
+1. Measures round-trip latency for a null Mach message (synchronous send+receive)
+2. Uses the x86-64 TSC (`rdtsc`) for cycle-accurate timing
+3. Reports min/max/average over multiple iterations
+
+Planned comparisons (Phase 2+):
+
+- Compare against HURD/GNU Mach baseline
+- Compare against Linux `pipe()` round-trip (not a fair comparison, but useful reference)
+- Profile where cycles are spent
+
+Results will be documented in `docs/research/ipc-performance.md`.
