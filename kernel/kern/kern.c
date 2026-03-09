@@ -97,6 +97,7 @@ void kernel_main(void)
      */
     serial_putstr("\r\n");
     bootstrap_ipc_init();
+    /*
      * BSD personality server (Phase 2: kernel-internal)
      * Initialises the process table and demonstrates fork/exec/exit/wait.
      */
@@ -144,6 +145,7 @@ void kernel_main(void)
 
     serial_putstr("\r\n");
     ipc_timeout_test_run();
+    /*
      * BSD server test suite:
      * Tests fork, exec, exit, wait, signals, and file descriptors.
      */
