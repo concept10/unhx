@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kalloc.c — Bump allocator for UNHOX Phase 1
+ * kernel/kern/kalloc.c — Bump allocator for NEOMACH Phase 1
  *
  * See kalloc.h for design rationale.
  */

@@ -1,5 +1,5 @@
 {
-  description = "UNHOX — Mach microkernel OS development environment";
+  description = "NEOMACH — Mach microkernel OS development environment";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
@@ -13,7 +13,7 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          name = "unhx-dev";
+          name = "neomach-dev";
 
           packages = with pkgs; [
             # Cross-compilation toolchain
@@ -42,12 +42,12 @@
           ];
 
           shellHook = ''
-            echo "UNHOX development environment"
+            echo "NEOMACH development environment"
             echo "  clang:  $(clang --version | head -1)"
             echo "  qemu:   $(qemu-system-x86_64 --version | head -1)"
             echo "  cmake:  $(cmake --version | head -1)"
             echo ""
-            echo "Build:  cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake -DUNHOX_BOOT_TESTS=ON && cmake --build build"
+            echo "Build:  cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake -DNEOMACH_BOOT_TESTS=ON && cmake --build build"
             echo "Run:    ./tools/run-qemu.sh"
           '';
         };

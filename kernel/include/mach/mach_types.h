@@ -1,5 +1,5 @@
 /*
- * kernel/include/mach/mach_types.h — Core Mach 3.0 type definitions for UNHOX
+ * kernel/include/mach/mach_types.h — Core Mach 3.0 type definitions for NEOMACH
  *
  * Reference: Accetta et al., "Mach: A New Kernel Foundation for UNIX
  *            Development", USENIX Summer Conference, 1986.
@@ -95,6 +95,104 @@ typedef struct {
 #define MACH_MSGH_BITS_LOCAL(bits)  (((bits) >> 8) & 0x1f)
 #define MACH_MSGH_BITS(remote, local) \
     (((local) << 8) | (remote))
+
+/* -------------------------------------------------------------------------
+ * Message type names for port right disposition in typed descriptors
+ *
+ * These values specify how a port right is transferred from sender to
+ * receiver when embedded in a mach_msg_port_descriptor_t.
+ *
+ * CMU Mach 3.0 paper §3.4: "The type of a port entry specifies whether
+ * the entry is a receive right, a send right, or a send-once right, and
+ * whether the right is moved or copied."
+ * ------------------------------------------------------------------------- */
+#define MACH_MSG_TYPE_MOVE_RECEIVE   ((mach_msg_type_name_t) 16)
+#define MACH_MSG_TYPE_MOVE_SEND      ((mach_msg_type_name_t) 17)
+#define MACH_MSG_TYPE_MOVE_SEND_ONCE ((mach_msg_type_name_t) 18)
+#define MACH_MSG_TYPE_COPY_SEND      ((mach_msg_type_name_t) 19)
+#define MACH_MSG_TYPE_MAKE_SEND      ((mach_msg_type_name_t) 20)
+#define MACH_MSG_TYPE_MAKE_SEND_ONCE ((mach_msg_type_name_t) 21)
+
+/* -------------------------------------------------------------------------
+ * Message descriptor types
+ *
+ * The 'type' field is always at byte offset 0 of every descriptor struct,
+ * allowing dispatch without knowing the descriptor size in advance.
+ * ------------------------------------------------------------------------- */
+#define MACH_MSG_PORT_DESCRIPTOR      ((uint32_t) 0)
+#define MACH_MSG_OOL_DESCRIPTOR       ((uint32_t) 1)
+#define MACH_MSG_OOL_PORTS_DESCRIPTOR ((uint32_t) 2)
+
+/* Copy semantics for OOL memory descriptors */
+#define MACH_MSG_PHYSICAL_COPY        ((uint8_t) 0)
+#define MACH_MSG_VIRTUAL_COPY         ((uint8_t) 1)
+
+/*
+ * mach_msg_port_descriptor_t — typed descriptor carrying a port right.
+ *
+ * When present in a complex message (MACH_MSGH_BITS_COMPLEX set),
+ * transfers a port right from sender to receiver.
+ *
+ * 'disposition' selects the transfer semantics:
+ *   MOVE_SEND      — remove the send right from sender, give to receiver
+ *   COPY_SEND      — keep sender's right, give a copy to receiver
+ *   MOVE_RECEIVE   — transfer the receive right
+ *   MAKE_SEND      — sender holds receive right; make a send right for receiver
+ *   MAKE_SEND_ONCE — sender holds receive right; make a send-once right for receiver
+ *
+ * On send:   'name' is the port name in the sender's space.
+ * On receive: 'name' is filled in with the port name in the receiver's space.
+ */
+typedef struct {
+    uint32_t                type;        /* MACH_MSG_PORT_DESCRIPTOR        */
+    mach_port_t             name;        /* port name (sender or receiver)  */
+    mach_msg_type_name_t    disposition; /* how the right is transferred    */
+} mach_msg_port_descriptor_t;           /* 12 bytes                        */
+
+/*
+ * mach_msg_ool_descriptor_t — typed descriptor carrying out-of-line memory.
+ *
+ * Carries a reference to an out-of-line (OOL) memory buffer.  The buffer
+ * is physically copied in Phase 2; Phase 3+ will use VM-level zero-copy.
+ *
+ * On send:   'address' points to the buffer in the sender's address space.
+ * On receive: 'address' points to a kernel-allocated copy of the buffer.
+ *
+ * 'size'       — buffer size in bytes.
+ * 'deallocate' — if non-zero, the sender's buffer is freed after sending.
+ * 'copy'       — MACH_MSG_PHYSICAL_COPY (only option in Phase 2).
+ */
+typedef struct {
+    uint32_t                type;        /* MACH_MSG_OOL_DESCRIPTOR         */
+    mach_msg_size_t         size;        /* buffer size in bytes            */
+    void                   *address;    /* buffer address                  */
+    uint8_t                 deallocate;  /* free sender's buffer after send */
+    uint8_t                 copy;        /* copy semantics                  */
+    uint8_t                 pad[2];      /* reserved, must be zero          */
+} mach_msg_ool_descriptor_t;            /* 20 bytes on LP64               */
+
+/*
+ * mach_msg_type_descriptor_t — opaque first word for descriptor dispatch.
+ *
+ * Since 'type' is at byte offset 0 in all descriptor structs, a pointer
+ * to this struct can be used to read the type before casting to the
+ * concrete type.
+ */
+typedef struct {
+    uint32_t                type;
+} mach_msg_type_descriptor_t;
+
+/* -------------------------------------------------------------------------
+ * Message timeout
+ * ------------------------------------------------------------------------- */
+
+/*
+ * mach_msg_timeout_t — receive (or send) timeout in milliseconds.
+ * MACH_MSG_TIMEOUT_NONE (0) means no timeout (block forever or, in Phase 1,
+ * return immediately when no message is available).
+ */
+typedef uint32_t mach_msg_timeout_t;
+#define MACH_MSG_TIMEOUT_NONE   ((mach_msg_timeout_t) 0)
 
 /* -------------------------------------------------------------------------
  * Message return codes

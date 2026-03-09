@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kern.c — Kernel core initialisation and kernel_main for UNHOX
+ * kernel/kern/kern.c — Kernel core initialisation and kernel_main for NEOMACH
  *
  * kernel_main() is the C entry point invoked by the assembly boot stub
  * (kernel/platform/boot.S) after the GDT is loaded, the initial stack is
@@ -15,15 +15,28 @@
 #include "ipc/ipc.h"
 #include "vm/vm.h"
 
-#ifdef UNHOX_BOOT_TESTS
+#ifdef NEOMACH_BOOT_TESTS
 #include "tests/ipc_test.h"
+#include "tests/ipc/ipc_roundtrip_test.h"
+#include "tests/ipc/ipc_perf.h"
+#include "tests/ipc/ipc_ool_test.h"
+#include "tests/ipc/ipc_port_transfer_test.h"
+#include "tests/ipc/ipc_timeout_test.h"
+#include "tests/bsd/bsd_server_test.h"
 #endif
 
-/* Serial output (platform layer) */
+/* Serial output and platform initialisation (platform layer) */
+extern void platform_init(void);
 extern void serial_putstr(const char *s);
 
 /* Bootstrap server entry (Phase 1: kernel-internal) */
 extern void bootstrap_main(void);
+
+/* Bootstrap IPC server (Phase 2) */
+extern void bootstrap_ipc_init(void);
+/* BSD personality server (Phase 2: kernel-internal) */
+extern void bsd_server_init(void);
+extern void bsd_server_main(void);
 
 void kern_init(void)
 {
@@ -36,12 +49,14 @@ void kern_init(void)
 
 void kernel_main(void)
 {
+    platform_init();
+
     serial_putstr("\r\n");
     serial_putstr("================================================\r\n");
-    serial_putstr("  UNHOX — U Is Not Hurd Or X\r\n");
-    serial_putstr("  Mach microkernel — Phase 1\r\n");
+    serial_putstr("  NEOMACH — The Mach Kernel Reborn\r\n");
+    serial_putstr("  Mach microkernel — Phase 2\r\n");
     serial_putstr("================================================\r\n");
-    serial_putstr("[UNHOX] kernel_main entered\r\n");
+    serial_putstr("[NEOMACH] kernel_main entered\r\n");
 
     /*
      * Initialise subsystems in dependency order:
@@ -50,19 +65,19 @@ void kernel_main(void)
      *   3. VM      — physical page allocator
      *   4. kern    — kernel task, scheduler
      */
-    serial_putstr("[UNHOX] initialising kernel heap...\r\n");
+    serial_putstr("[NEOMACH] initialising kernel heap...\r\n");
     kalloc_init();
 
-    serial_putstr("[UNHOX] initialising IPC subsystem...\r\n");
+    serial_putstr("[NEOMACH] initialising IPC subsystem...\r\n");
     ipc_init();
 
-    serial_putstr("[UNHOX] initialising VM subsystem...\r\n");
+    serial_putstr("[NEOMACH] initialising VM subsystem...\r\n");
     vm_init(0, 0);  /* TODO: parse real Multiboot2 memory map */
 
-    serial_putstr("[UNHOX] initialising kernel core...\r\n");
+    serial_putstr("[NEOMACH] initialising kernel core...\r\n");
     kern_init();
 
-    serial_putstr("[UNHOX] all subsystems initialised\r\n");
+    serial_putstr("[NEOMACH] all subsystems initialised\r\n");
 
     /*
      * Phase 1 IPC smoke test (Prompt 3.3):
@@ -77,7 +92,20 @@ void kernel_main(void)
     serial_putstr("\r\n");
     bootstrap_main();
 
-#ifdef UNHOX_BOOT_TESTS
+    /*
+     * Bootstrap IPC server (Phase 2): initialise IPC-based service registry.
+     */
+    serial_putstr("\r\n");
+    bootstrap_ipc_init();
+    /*
+     * BSD personality server (Phase 2: kernel-internal)
+     * Initialises the process table and demonstrates fork/exec/exit/wait.
+     */
+    serial_putstr("\r\n");
+    bsd_server_init();
+    bsd_server_main();
+
+#ifdef NEOMACH_BOOT_TESTS
     /*
      * Formal IPC milestone test (Prompt 8 — v0.2):
      * Comprehensive test suite with PASS/FAIL reporting.
@@ -86,14 +114,57 @@ void kernel_main(void)
     int test_result = ipc_test_run();
 
     if (test_result == 0) {
-        serial_putstr("\r\n[UNHOX] All milestone tests PASSED.\r\n");
+        serial_putstr("\r\n[NEOMACH] All milestone tests PASSED.\r\n");
     } else {
-        serial_putstr("\r\n[UNHOX] Milestone tests FAILED.\r\n");
+        serial_putstr("\r\n[NEOMACH] Milestone tests FAILED.\r\n");
+    }
+
+    /*
+     * IPC round-trip correctness test:
+     * Exercises ipc_right.c and mach_msg_trap() with 5 test scenarios.
+     */
+    serial_putstr("\r\n");
+    ipc_roundtrip_test_run();
+
+    /*
+     * IPC performance benchmark:
+     * Measures null Mach message round-trip latency via TSC.
+     */
+    serial_putstr("\r\n");
+    ipc_perf_run();
+
+    /*
+     * Phase 2 IPC tests:
+     * OOL descriptors, port right transfer, and blocking receive with timeout.
+     */
+    serial_putstr("\r\n");
+    ipc_ool_test_run();
+
+    serial_putstr("\r\n");
+    ipc_port_transfer_test_run();
+
+    serial_putstr("\r\n");
+    ipc_timeout_test_run();
+    /*
+     * BSD server test suite:
+     * Tests fork, exec, exit, wait, signals, and file descriptors.
+     */
+    serial_putstr("\r\n");
+    int bsd_result = bsd_server_test_run();
+
+    if (bsd_result == 0) {
+        serial_putstr("\r\n[NEOMACH] BSD server tests PASSED.\r\n");
+    } else {
+        serial_putstr("\r\n[NEOMACH] BSD server tests FAILED.\r\n");
     }
 #endif
 
     /* Halt — preemptive scheduler loop goes here in Phase 2 */
-    serial_putstr("\r\n[UNHOX] halting (cooperative scheduling only in Phase 1)\r\n");
+    serial_putstr("\r\n[NEOMACH] halting (cooperative scheduling only in Phase 1)\r\n");
     for (;;)
+#if defined(__aarch64__)
+        __asm__ volatile ("wfi");
+#else
         __asm__ volatile ("hlt");
+#endif
 }

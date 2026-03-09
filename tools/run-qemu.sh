@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# tools/run-qemu.sh — Build UNHOX and launch it under QEMU
+# tools/run-qemu.sh — Build NEOMACH and launch it under QEMU
 #
 # Usage:
-#   ./tools/run-qemu.sh [--no-build] [--no-kvm]
+#   ./tools/run-qemu.sh [--arch=x86_64|aarch64] [--no-build] [--no-kvm]
 #
-#   --no-build  Skip the CMake build step (use an existing build/unhx.elf)
+#   --arch=x86_64   Build and run the x86-64 kernel (default)
+#   --arch=aarch64  Build and run the AArch64 kernel (for Apple Silicon hosts)
+#   --no-build  Skip the CMake build step (use an existing kernel image)
 #   --no-kvm    Force TCG software emulation even if KVM is available
 #
 # Prerequisites (macOS arm64):
 #   brew install llvm qemu
 #
-# QEMU flags explained:
+# QEMU flags explained (x86-64):
 #   -machine q35        Modern Intel Q35 chipset emulation (PCIe, AHCI)
 #   -cpu qemu64         Generic x86-64 CPU emulation (safe on all hosts)
 #   -m 256M             256 MB RAM — enough for Phase 1 kernel development
@@ -24,37 +26,61 @@
 #   -accel kvm          Use KVM hardware acceleration (Linux only)
 #   -accel tcg          Use TCG software emulation (default on macOS)
 #   -accel hvf          Use macOS Hypervisor.framework (macOS only, x86-64 guests)
+#
+# QEMU flags explained (aarch64):
+#   -machine virt       Generic AArch64 virtual board (GIC, PL011, virtio)
+#   -cpu cortex-a57     ARMv8-A CPU emulation
+#   -m 256M             256 MB RAM
+#   -kernel <img>       Load ELF kernel directly
+#   -serial stdio       PL011 UART output to stdout
+#   -display none       Headless
+#   -accel tcg          Software emulation (required for cross-arch guests)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUILD_DIR="${REPO_ROOT}/build"
-KERNEL_IMG="${BUILD_DIR}/unhx.elf"
+TMP_DIR="${REPO_ROOT}/.tmp"
 
+# Create project-local temporary directory for QEMU files
+mkdir -p "${TMP_DIR}"
+
+ARCH="x86_64"
 DO_BUILD=1
 FORCE_TCG=0
 
 for arg in "$@"; do
     case "$arg" in
+        --arch=x86_64)  ARCH="x86_64" ;;
+        --arch=aarch64) ARCH="aarch64" ;;
         --no-build) DO_BUILD=0 ;;
         --no-kvm)   FORCE_TCG=1 ;;
         *) echo "Unknown argument: $arg" >&2; exit 1 ;;
     esac
 done
 
+if [[ "$ARCH" == "aarch64" ]]; then
+    BUILD_DIR="${REPO_ROOT}/build-aarch64"
+    TOOLCHAIN="${REPO_ROOT}/cmake/aarch64-elf-clang.cmake"
+else
+    BUILD_DIR="${REPO_ROOT}/build"
+    TOOLCHAIN="${REPO_ROOT}/cmake/x86_64-elf-clang.cmake"
+fi
+
+KERNEL_IMG="${BUILD_DIR}/neomach.elf"
+
 # ---------------------------------------------------------------------------
 # Build step
 # ---------------------------------------------------------------------------
 if [[ $DO_BUILD -eq 1 ]]; then
-    echo "[run-qemu] Configuring CMake build in ${BUILD_DIR} ..."
+    echo "[run-qemu] Configuring CMake build in ${BUILD_DIR} (arch=${ARCH}) ..."
     cmake -S "${REPO_ROOT}/kernel" -B "${BUILD_DIR}" \
-          -DCMAKE_TOOLCHAIN_FILE="${REPO_ROOT}/cmake/x86_64-elf-clang.cmake" \
+          -DCMAKE_TOOLCHAIN_FILE="${TOOLCHAIN}" \
           -DCMAKE_BUILD_TYPE=Debug \
-          -DUNHOX_BOOT_TESTS=ON \
+          -DNEOMACH_BOOT_TESTS=ON \
           --no-warn-unused-cli
 
-    echo "[run-qemu] Building UNHOX kernel ..."
-    cmake --build "${BUILD_DIR}" --target unhx.elf
+    echo "[run-qemu] Building NEOMACH kernel ..."
+    cmake --build "${BUILD_DIR}" --target neomach.elf
 fi
 
 if [[ ! -f "${KERNEL_IMG}" ]]; then
@@ -64,8 +90,28 @@ if [[ ! -f "${KERNEL_IMG}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Acceleration detection (macOS + Linux)
+# Acceleration detection and QEMU launch
 # ---------------------------------------------------------------------------
+if [[ "$ARCH" == "aarch64" ]]; then
+    # AArch64 always uses TCG (cross-arch guest — HVF/KVM not available)
+    echo "[run-qemu] Launching QEMU (aarch64) ..."
+    echo "[run-qemu] Serial output on stdio | GDB stub on localhost:1234"
+    echo "[run-qemu] Press Ctrl-A X to quit QEMU"
+    echo "-----------------------------------------------------------"
+    exec qemu-system-aarch64 \
+        -machine virt,virtualization=off \
+        -cpu cortex-a57 \
+        -accel tcg \
+        -m 256M \
+        -kernel "${KERNEL_IMG}" \
+        -serial stdio \
+        -display none \
+        -no-reboot \
+        -pidfile "${TMP_DIR}/qemu-aarch64.pid" \
+        -s
+fi
+
+# x86-64 path below
 ACCEL_FLAGS=()
 if [[ $FORCE_TCG -eq 0 ]]; then
     if [[ -w /dev/kvm ]] 2>/dev/null; then
@@ -86,7 +132,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Launch QEMU
+# Launch QEMU (x86-64)
 # ---------------------------------------------------------------------------
 echo "[run-qemu] Launching QEMU ..."
 echo "[run-qemu] Serial output on stdio | GDB stub on localhost:1234"
@@ -102,4 +148,5 @@ exec qemu-system-x86_64 \
     -display none \
     -no-reboot \
     -no-shutdown \
+    -pidfile "${TMP_DIR}/qemu-x86_64.pid" \
     -s

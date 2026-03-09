@@ -9,15 +9,30 @@ Task, thread, scheduler, and host/processor abstractions.
 - **host** / **processor** — hardware abstraction
 - **clock** — timekeeping and timer services
 
-## Implementation Plan
+## Current Status — Phase 1 Complete
 
-- [ ] `task.h` / `task.c` — task create, terminate, reference counting
-- [ ] `thread.h` / `thread.c` — thread create, switch, terminate
-- [ ] `sched.c` — basic round-robin scheduler (priority later)
+| File | Status | Description |
+|------|--------|-------------|
+| `task.h` / `task.c` | ✅ Done | Task create, destroy, reference counting, kernel task |
+| `thread.h` / `thread.c` | ✅ Done | Thread create, context save/restore, lifecycle |
+| `sched.h` / `sched.c` | ✅ Done | Cooperative round-robin scheduler; PIT timer setup |
+| `kalloc.h` / `kalloc.c` | ✅ Done | Kernel heap — 256 KB bump allocator |
+| `klib.h` / `klib.c` | ✅ Done | Minimal string/memory helpers (no libc dependency) |
+| `kern.h` / `kern.c` | ✅ Done | Kernel entry point (`kernel_main`), subsystem init |
+| `kernel_task.h` / `kernel_task.c` | ✅ Done | Kernel task (task 0) creation and IPC smoke test |
+| `host.c` | 🔲 Phase 2 | Host object and processor management |
+| `exception.c` | 🔲 Phase 2 | Mach exception ports and delivery |
+
+The bootstrap server (`servers/bootstrap/bootstrap.c`) provides initial service
+registration and port lookup for milestones v0.3+.
+
+## Phase 2 TODO
+
+- [ ] Preemptive scheduling — timer interrupt (IDT + APIC required)
 - [ ] `host.c` — host object and processor management
-- [ ] `startup.c` — kernel startup sequence
-- [ ] `bootstrap.c` — bootstrap server: initial task + port registration
 - [ ] `exception.c` — Mach exception ports and delivery
+- [ ] Sleep locks (replace spinlocks once scheduler can block/unblock)
+- [ ] SMP-safe task/thread operations
 
 ## References
 

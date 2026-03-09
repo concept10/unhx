@@ -1,5 +1,5 @@
 /*
- * kernel/kern/task.c — Mach task abstraction for UNHOX
+ * kernel/kern/task.c — Mach task abstraction for NEOMACH
  *
  * See task.h for design rationale and the distinction between tasks and threads.
  *

@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_port.h — Kernel-internal port object for UNHOX
+ * kernel/ipc/ipc_port.h — Kernel-internal port object for NEOMACH
  *
  * This header defines struct ipc_port, the kernel-side representation of a
  * Mach port.  Userspace tasks never see this structure; they see only port
@@ -97,12 +97,24 @@ struct ipc_port {
      *
      * The queue is embedded by value to avoid a separate allocation per port.
      * See kernel/ipc/ipc_mqueue.h for the queue structure.
-     *
-     * TODO: In real Mach, the message queue also carries a set of threads
-     *       blocked waiting to receive.  Add that in Phase 2 when we have a
-     *       thread scheduler (see ipc_mqueue.h for the TODO marker).
      */
     struct ipc_mqueue  *ip_messages;    /* points into embedded storage below */
+
+    /*
+     * ip_nsrequest — no-senders notification port.
+     *
+     * When ip_send_rights drops to zero (the last send right is destroyed),
+     * the kernel sends a MACH_NOTIFY_NO_SENDERS message to this port if it
+     * is non-NULL.
+     *
+     * CMU Mach 3.0 paper §3.1: "When the last send right to a port is
+     * destroyed, the kernel optionally notifies the port's receiver via a
+     * no-senders notification."
+     *
+     * Set via mach_port_request_notification(); cleared after delivery.
+     * Protected by ip_lock.
+     */
+    struct ipc_port    *ip_nsrequest;
 
     /*
      * ip_seqno — monotonically increasing sequence number.

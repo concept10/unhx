@@ -1,5 +1,5 @@
 /*
- * kernel/kern/kern.h — Kernel core: tasks, threads, and scheduler (UNHOX)
+ * kernel/kern/kern.h — Kernel core: tasks, threads, and scheduler (NEOMACH)
  *
  * This subsystem implements the Mach task and thread abstractions:
  *

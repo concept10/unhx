@@ -1,44 +1,44 @@
-# UNHOX Kernel — Development History
+# NEOMACH Kernel — Development History
 
 ## First Successful Boot — 2026-03-01
 
-The UNHOX kernel achieved its first successful boot on March 1, 2026,
+The NEOMACH kernel achieved its first successful boot on March 1, 2026,
 running on QEMU x86-64 (TCG) from an arm64 M3 MacBook Air.
 
 ### Boot output
 
 ```
 ================================================
-  UNHOX — U Is Not Hurd Or X
+  NEOMACH — The Mach Kernel Reborn
   Mach microkernel — Phase 1
 ================================================
-[UNHOX] kernel_main entered
-[UNHOX] initialising kernel heap...
-[UNHOX] initialising IPC subsystem...
-[UNHOX] initialising VM subsystem...
-[UNHOX] initialising kernel core...
-[UNHOX] kernel task (task 0) created
-[UNHOX] all subsystems initialised
+[NEOMACH] kernel_main entered
+[NEOMACH] initialising kernel heap...
+[NEOMACH] initialising IPC subsystem...
+[NEOMACH] initialising VM subsystem...
+[NEOMACH] initialising kernel core...
+[NEOMACH] kernel task (task 0) created
+[NEOMACH] all subsystems initialised
 
-[UNHOX IPC] beginning IPC smoke test...
-[UNHOX IPC] task_a and task_b created
-[UNHOX IPC] port allocated in task_a (receive right)
-[UNHOX IPC] send right granted to task_b
-[UNHOX IPC] task_b sent message
-[UNHOX IPC] message received: hello
-[UNHOX IPC] magic: 0x00000000deadbeef (correct)
-[UNHOX] Phase 1 complete. Mach IPC operational.
+[NEOMACH IPC] beginning IPC smoke test...
+[NEOMACH IPC] task_a and task_b created
+[NEOMACH IPC] port allocated in task_a (receive right)
+[NEOMACH IPC] send right granted to task_b
+[NEOMACH IPC] task_b sent message
+[NEOMACH IPC] message received: hello
+[NEOMACH IPC] magic: 0x00000000deadbeef (correct)
+[NEOMACH] Phase 1 complete. Mach IPC operational.
 
 [bootstrap] initialising bootstrap server
-[bootstrap] registered: com.unhox.kernel
-[bootstrap] registered: com.unhox.ipc_test
-[bootstrap] lookup com.unhox.kernel → port 1 (OK)
-[bootstrap] lookup com.unhox.nonexistent → not found (OK)
+[bootstrap] registered: com.neomach.kernel
+[bootstrap] registered: com.neomach.ipc_test
+[bootstrap] lookup com.neomach.kernel → port 1 (OK)
+[bootstrap] lookup com.neomach.nonexistent → not found (OK)
 [bootstrap] duplicate registration rejected (OK)
 [bootstrap] bootstrap server ready
 
 ========================================
- UNHOX IPC Milestone Test (v0.2)
+ NEOMACH IPC Milestone Test (v0.2)
 ========================================
   [PASS] task_a created
   [PASS] task_b created
@@ -59,11 +59,11 @@ running on QEMU x86-64 (TCG) from an arm64 M3 MacBook Air.
  Results: 13 passed, 0 failed, 13 total
  STATUS: PASS
 ========================================
-[UNHOX] IPC milestone v0.2 PASSED.
+[NEOMACH] IPC milestone v0.2 PASSED.
 
-[UNHOX] All milestone tests PASSED.
+[NEOMACH] All milestone tests PASSED.
 
-[UNHOX] halting (cooperative scheduling only in Phase 1)
+[NEOMACH] halting (cooperative scheduling only in Phase 1)
 ```
 
 ### Build environment
@@ -77,8 +77,8 @@ running on QEMU x86-64 (TCG) from an arm64 M3 MacBook Air.
 ### QEMU invocation
 
 ```
-qemu-system-x86_64 -kernel build/unhx.elf -no-reboot -display none \
-    -serial file:/tmp/unhx_serial.log -m 64M
+qemu-system-x86_64 -kernel build/neomach.elf -no-reboot -display none \
+    -serial file:/tmp/neomach_serial.log -m 64M
 ```
 
 ### Obstacles overcome to reach first boot

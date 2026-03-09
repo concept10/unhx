@@ -1,30 +1,28 @@
-# Neomach System Architecture
+# NEOMACH System Architecture
 
 ## Full Software Stack
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│               Neomach Full Software Stack                         │
-├─────────────────────────────────────────────────────────────────┤
-│  Workspace Manager  │  AppKit  │  Display Server (DPS)          │
-├─────────────────────┼──────────┼────────────────────────────────┤
-│  Foundation Kit  │  libobjc2  │  libdispatch  │  CoreFoundation │
-├─────────────────────────────────────────────────────────────────┤
-│  AudioUnits framework  │  MIDI Server  │  Audio Server          │
-├─────────────────────────────────────────────────────────────────┤
-│  BSD Server  │  VFS Server  │  Net Server  │  Auth Server       │
-├─────────────────────────────────────────────────────────────────┤
-│  Device Server  │  Bootstrap Server  │  Pager Servers           │
-├─────────────────────────────────────────────────────────────────┤
-│  MACH MICROKERNEL  (IPC · VM · Tasks · Threads · Sched/RT)     │
-├─────────────────────────────────────────────────────────────────┤
-│  Hardware Abstraction  (x86-64 / AArch64)                       │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│            NEOMACH Full Software Stack                        │
+├─────────────────────────────────────────────────────────────┤
+│  Workspace Manager  │  AppKit  │  Display Server (DPS)      │
+├─────────────────────┼──────────┼────────────────────────────┤
+│  Foundation Kit  │  libobjc2  │  libdispatch  │  CoreFnd   │
+├─────────────────────────────────────────────────────────────┤
+│  BSD Server  │  VFS Server  │  Net Server  │  Auth Server  │
+├─────────────────────────────────────────────────────────────┤
+│  Device Server  │  Bootstrap Server  │  Pager Servers       │
+├─────────────────────────────────────────────────────────────┤
+│  MACH MICROKERNEL  (IPC · VM · Tasks · Threads · Sched)    │
+├─────────────────────────────────────────────────────────────┤
+│  Hardware Abstraction  (x86-64 / AArch64)                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Kernel/Server Split
 
-Neomach maintains strict microkernel discipline. The boundary:
+NEOMACH maintains strict microkernel discipline. The boundary:
 
 **Inside the kernel (kernel/ directory):**
 - Mach port IPC (`kernel/ipc/`)
@@ -70,9 +68,25 @@ Client Task                    Server Task
     │<─────────────────────────────│
 ```
 
+## Deployment Scope
+
+The NEOMACH kernel is not limited to desktop use.  The microkernel design makes it
+applicable to embedded systems, edge devices, industrial PLCs, virtual PLC runtimes,
+and more — the kernel binary is identical; only the servers launched at boot change.
+
+See [use-cases.md](use-cases.md) for a comprehensive discussion of:
+- Supported and planned processor architectures and minimum hardware requirements
+- RTOS / real-time applicability and what is required
+- PLC runtime and virtual PLC runtime profiles
+- Edge / IoT gateway deployment patterns
+- Platform-specific examples (Raspberry Pi, NXP i.MX, RISC-V, Industrial PC, Automotive SoC)
+- Decision guide for choosing NEOMACH vs. other microkernel or RTOS options
+
 ## Source References
 
 - CMU Mach 3.0 design: `archive/cmu-mach/`
 - OSF MK extensions: `archive/osf-mk/`
 - HURD server model: https://git.savannah.gnu.org/git/hurd/hurd.git
 - XNU reference: https://github.com/apple-oss-distributions/xnu
+- Display server survey: `docs/display-server-survey.md`
+- Display server RFC: `docs/rfcs/RFC-0002-display-server-alternatives.md`

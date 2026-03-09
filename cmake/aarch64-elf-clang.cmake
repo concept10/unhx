@@ -1,0 +1,80 @@
+# cmake/aarch64-elf-clang.cmake — Cross-compilation toolchain for NEOMACH (AArch64)
+#
+# Builds an AArch64 freestanding ELF kernel from any host (including arm64 macOS).
+#
+# Uses clang with --target=aarch64-unknown-elf for compilation and assembly,
+# and LLVM's ld.lld directly for ELF linking (bypassing the clang driver
+# to avoid host-specific linker flags being injected).
+#
+# Prerequisites:
+#   macOS:  brew install llvm lld qemu
+#   Linux:  apt install clang lld qemu-system-aarch64 (or equivalent)
+#
+# Usage:
+#   cmake -S kernel -B build-aarch64 \
+#         -DCMAKE_TOOLCHAIN_FILE=cmake/aarch64-elf-clang.cmake
+#   cmake --build build-aarch64
+
+cmake_minimum_required(VERSION 3.20)
+
+set(CMAKE_SYSTEM_NAME      Generic)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+# ---------------------------------------------------------------------------
+# Detect LLVM clang (prefer brew LLVM, fallback to system clang)
+# ---------------------------------------------------------------------------
+if(EXISTS "/opt/homebrew/opt/llvm/bin/clang")
+    set(LLVM_CLANG "/opt/homebrew/opt/llvm/bin/clang")
+elseif(EXISTS "/usr/local/opt/llvm/bin/clang")
+    set(LLVM_CLANG "/usr/local/opt/llvm/bin/clang")
+else()
+    set(LLVM_CLANG "clang")
+endif()
+
+# ---------------------------------------------------------------------------
+# Detect ld.lld (brew lld installs to /opt/homebrew/bin/ld.lld)
+# ---------------------------------------------------------------------------
+if(EXISTS "/opt/homebrew/bin/ld.lld")
+    set(LLD_LINKER "/opt/homebrew/bin/ld.lld")
+elseif(EXISTS "/usr/local/bin/ld.lld")
+    set(LLD_LINKER "/usr/local/bin/ld.lld")
+else()
+    find_program(LLD_LINKER ld.lld REQUIRED)
+endif()
+
+# ---------------------------------------------------------------------------
+# Set compilers
+# ---------------------------------------------------------------------------
+set(CMAKE_C_COMPILER   "${LLVM_CLANG}")
+set(CMAKE_ASM_COMPILER "${LLVM_CLANG}")
+set(CMAKE_LINKER       "${LLD_LINKER}")
+
+set(CMAKE_C_COMPILER_TARGET   "aarch64-unknown-elf")
+set(CMAKE_ASM_COMPILER_TARGET "aarch64-unknown-elf")
+
+# ---------------------------------------------------------------------------
+# Flags
+# ---------------------------------------------------------------------------
+# Tell CMake this is a freestanding environment — skip standard library checks
+set(CMAKE_C_COMPILER_WORKS   TRUE)
+set(CMAKE_ASM_COMPILER_WORKS TRUE)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+
+set(CMAKE_C_FLAGS_INIT   "--target=aarch64-unknown-elf")
+set(CMAKE_ASM_FLAGS_INIT "--target=aarch64-unknown-elf")
+
+# ---------------------------------------------------------------------------
+# Override the link command to invoke ld.lld directly
+# ---------------------------------------------------------------------------
+# CMake's default link command uses the C compiler as the linker driver,
+# which on macOS causes Apple-specific flags to be injected.
+#
+# We bypass this entirely by invoking ld.lld directly.
+set(CMAKE_C_LINK_EXECUTABLE
+    "${LLD_LINKER} <LINK_FLAGS> <OBJECTS> -o <TARGET>"
+)
+
+# Don't search for host programs/libraries (cross-compile mode)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

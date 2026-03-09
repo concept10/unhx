@@ -1,5 +1,5 @@
 /*
- * kernel/kern/klib.h — Minimal C library functions for freestanding UNHOX kernel
+ * kernel/kern/klib.h — Minimal C library functions for freestanding NEOMACH kernel
  *
  * In a freestanding environment (-ffreestanding) the standard C library is not
  * available.  We provide the handful of functions the kernel actually needs.

@@ -1,5 +1,5 @@
 /*
- * kernel/ipc/ipc_kmsg.h — mach_msg() kernel entry point for UNHOX
+ * kernel/ipc/ipc_kmsg.h — mach_msg() kernel entry point for NEOMACH
  *
  * mach_msg() is the single most important system call in Mach.
  * ALL inter-process communication goes through it.
@@ -71,12 +71,33 @@ kern_return_t mach_msg_send(struct task *sender,
  *   KERN_SUCCESS           — message received successfully
  *   KERN_INVALID_NAME      — port_name not in receiver's space
  *   KERN_NOT_RECEIVER      — task does not hold RECEIVE right for this port
- *   KERN_FAILURE           — no message available (non-blocking Phase 1)
+ *   KERN_FAILURE           — no message available (non-blocking)
  */
 kern_return_t mach_msg_receive(struct task *receiver,
                                mach_port_name_t port_name,
                                void *buf,
                                mach_msg_size_t buf_size,
                                mach_msg_size_t *out_size);
+
+/*
+ * mach_msg_receive_timeout — receive with blocking timeout (Phase 2).
+ *
+ * Identical to mach_msg_receive() but blocks up to timeout_ms milliseconds
+ * waiting for a message if the queue is initially empty.
+ *
+ * timeout_ms: MACH_MSG_TIMEOUT_NONE (0) = non-blocking (same as mach_msg_receive).
+ *             Any other value = spin-wait up to that many milliseconds.
+ *
+ * Returns:
+ *   KERN_SUCCESS           — message received successfully
+ *   KERN_OPERATION_TIMED_OUT — timeout expired with no message
+ *   (other error codes as per mach_msg_receive)
+ */
+kern_return_t mach_msg_receive_timeout(struct task *receiver,
+                                        mach_port_name_t port_name,
+                                        void *buf,
+                                        mach_msg_size_t buf_size,
+                                        mach_msg_size_t *out_size,
+                                        mach_msg_timeout_t timeout_ms);
 
 #endif /* IPC_KMSG_H */

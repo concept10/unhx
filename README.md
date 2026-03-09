@@ -1,8 +1,8 @@
-# UNHOX — U Is Not Hurd Or X
+# NEOMACH — The Mach Kernel Reborn
 
 > *The kernel Mach always wanted to become.*
 
-UNHOX is an open-source research and implementation project building a true
+NEOMACH is an open-source research and implementation project building a true
 running microkernel operating system grounded in the original design philosophy
 of the Mach kernel.
 
@@ -16,8 +16,8 @@ frameworks and desktop environment.
 ## Repository Structure
 
 ```
-unhox/
-├── kernel/           # UNHOX Mach microkernel (new code)
+neomach/
+├── kernel/           # NEOMACH Mach microkernel (new code)
 │   ├── ipc/          # Mach port IPC implementation
 │   ├── vm/           # Virtual memory subsystem
 │   ├── kern/         # Task, thread, scheduler
@@ -49,7 +49,7 @@ unhox/
 
 ```sh
 # Clone with all submodules
-git clone --recurse-submodules https://github.com/concept10/unhx.git
+git clone --recurse-submodules https://github.com/outlaw-dma/neomach.git
 
 # Or initialize submodules after cloning
 git submodule update --init --recursive
@@ -57,21 +57,33 @@ git submodule update --init --recursive
 
 ## Current Status
 
-**Phase 0 — Source Archaeology & Repository Setup** (in progress)
+**Phase 1 — Kernel Core** ✅ Complete (2026-03-01)
+
+The NEOMACH kernel achieved its first successful boot on **March 1, 2026** under
+QEMU x86-64 with all Phase 1 milestone tests passing.
 
 - [x] Repository directory structure created
-- [x] Framework submodules added (libobjc2, GNUstep Foundation, AppKit)
+- [x] Build system (CMake + Nix flake)
+- [x] Framework submodules added (libobjc2, GNUstep Foundation, AppKit, libdispatch, CoreFoundation)
+- [x] Cross-compilation toolchain (Clang/LLD targeting `x86_64-unknown-elf`)
+- [x] Kernel boots under QEMU — serial output confirmed **(milestone v0.1 ✅)**
+- [x] Mach IPC: ports, port spaces, message queues, `mach_msg` — 13/13 tests pass **(milestone v0.2 ✅)**
+- [x] Bootstrap server: service registration and port lookup **(milestone v0.3 ✅)**
+- [x] Tasks and threads: task create/destroy, thread lifecycle, cooperative scheduler
+- [x] Virtual memory: physical page frame allocator, kernel heap (kalloc)
+- [x] AArch64 (Apple Silicon) boot and UART driver
 - [ ] CMU Mach 3.0 sources mirrored to `archive/cmu-mach/`
-- [ ] Build system (CMake + Nix)
-- [ ] First kernel code
+- [ ] IDT, APIC, preemptive scheduler (Phase 2)
+- [ ] BSD server, VFS server, shell (Phase 2)
 
+See [HISTORY.md](HISTORY.md) for the first-boot log and build notes.
 See [TASKS.md](TASKS.md) for the full actionable task list.
 
 ## Full Software Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│            UNHOX Full Software Stack                        │
+│            NEOMACH Full Software Stack                        │
 ├─────────────────────────────────────────────────────────────┤
 │  Workspace Manager  │  AppKit  │  Display Server (DPS)      │
 ├─────────────────────┼──────────┼────────────────────────────┤
@@ -89,17 +101,17 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 
 ## Milestones
 
-| Milestone | Name | Success Criteria |
-|-----------|------|-----------------|
-| v0.1 | Mach Boots | Kernel boots under QEMU, serial output |
-| v0.2 | IPC Works | Two tasks pass a Mach message |
-| v0.3 | Bootstrap | Bootstrap server, service registration |
-| v0.4 | BSD Server | Fork, exec, basic POSIX syscalls |
-| v0.5 | Shell | A shell prompt running on UNHOX |
-| v0.6 | Disk & FS | Boot from disk, read/write files |
-| v0.7 | Foundation | GNUstep Foundation app runs |
-| v0.8 | Display | Framebuffer + minimal window system |
-| v1.0 | Desktop | Full NeXT-heritage desktop boots |
+| Milestone | Name | Success Criteria | Status |
+|-----------|------|-----------------|--------|
+| v0.1 | Mach Boots | Kernel boots under QEMU, serial output | ✅ 2026-03-01 |
+| v0.2 | IPC Works | Two tasks pass a Mach message | ✅ 2026-03-01 |
+| v0.3 | Bootstrap | Bootstrap server, service registration | ✅ 2026-03-01 |
+| v0.4 | BSD Server | Fork, exec, basic POSIX syscalls | 🔲 Phase 2 |
+| v0.5 | Shell | A shell prompt running on NEOMACH | 🔲 Phase 2 |
+| v0.6 | Disk & FS | Boot from disk, read/write files | 🔲 Phase 3 |
+| v0.7 | Foundation | GNUstep Foundation app runs | 🔲 Phase 4 |
+| v0.8 | Display | Framebuffer + minimal window system | 🔲 Phase 5 |
+| v1.0 | Desktop | Full NeXT-heritage desktop boots | 🔲 Phase 5 |
 
 ## Design Principles
 
@@ -109,10 +121,28 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 4. **Clean Interfaces Over Premature Optimization** — We do not repeat XNU's mistake.
 5. **Everything Documented** — Every design decision, every source reference is documented.
 
+## Beyond the Desktop
+
+The NEOMACH kernel is not limited to desktop use.  The microkernel design enables it to run
+on embedded edge devices, industrial PLC controllers, virtual PLC runtimes, and automotive
+SoCs — the same kernel binary, different servers.
+
+See [docs/future.md](docs/future.md) for the design strategy covering future core
+system frameworks: audio (Core Audio / Audio Units / Core MIDI), graphics,
+media, networking, security, and the L4/seL4 kernel enhancements planned for
+NEOMACH — including a full licensing and compliance matrix.
+
+See [docs/use-cases.md](docs/use-cases.md) for:
+- Processor architecture requirements and minimum hardware specs
+- RTOS and real-time applicability
+- PLC runtime and virtual PLC deployment profiles
+- Edge / IoT gateway examples (Raspberry Pi, NXP i.MX, RISC-V)
+- Industrial and automotive platform examples
+
 ## License
 
-- New UNHOX kernel code: **GPL-2.0-or-later**
-- New UNHOX servers: **LGPL-2.1-or-later**
+- New NEOMACH kernel code: **GPL-2.0-or-later**
+- New NEOMACH servers: **LGPL-2.1-or-later**
 - GNUstep submodules: **LGPL-2.1** (see submodule repos)
 - Documentation: **CC BY-SA 4.0**
 - XNU-derived portions: **APSL 2.0** (see `docs/sources.md`)
@@ -124,4 +154,4 @@ See [docs/roadmap.md](docs/roadmap.md) for the development roadmap and
 
 ---
 
-*UNHOX (c) 2026 tracey — Free Software · Open Research*
+*NEOMACH (c) 2026 tracey — Free Software · Open Research*

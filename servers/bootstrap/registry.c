@@ -1,5 +1,5 @@
 /*
- * servers/bootstrap/registry.c — Service name → port registry for UNHOX
+ * servers/bootstrap/registry.c — Service name → port registry for NEOMACH
  *
  * The registry is a simple array-based map from service names to port
  * handles.  In a real system this would be backed by IPC (the bootstrap

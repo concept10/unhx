@@ -1,5 +1,5 @@
 /*
- * kernel/vm/vm_page.h — Physical page frame allocator for UNHOX
+ * kernel/vm/vm_page.h — Physical page frame allocator for NEOMACH
  *
  * Manages the pool of physical page frames using a free list (linked list
  * of free pages).  This is the lowest layer of the VM subsystem: it knows

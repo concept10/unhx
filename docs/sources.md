@@ -1,6 +1,6 @@
 # Source Inventory & Licenses
 
-Complete inventory of all external sources used in Neomach, with provenance and
+Complete inventory of all external sources used in NEOMACH, with provenance and
 licensing information.
 
 ## Kernel References (archive/)
@@ -41,48 +41,16 @@ licensing information.
 
 ### Notes on Framework Licenses
 
-- **libobjc2** (MIT): No restrictions on use in Neomach.
+- **libobjc2** (MIT): No restrictions on use in NEOMACH.
 - **GNUstep Base/GUI** (LGPL-2.1): Must be dynamically linked or provide
-  object files for relinking. Neomach servers will link these as shared libraries.
+  object files for relinking. NEOMACH servers will link these as shared libraries.
 - **libdispatch / CoreFoundation** (Apache-2.0): Permissive. Must retain
   copyright notices and license text.
 
-## Audio Subsystem References (not mirrored)
+## NEOMACH Original Code
 
-The following external specifications and documentation are referenced by the
-audio subsystem design (`docs/audio-server-design.md`, RFC-0005) but are not
-included in the repository.
-
-| Reference | URL | License |
-|-----------|-----|---------|
-| Intel HDA Specification Rev 1.0a | Intel developer site | Public specification |
-| USB Audio Class 2.0 specification | usb.org | Public specification |
-| USB MIDI Class 1.0 specification | usb.org | Public specification |
-| virtio-snd specification | virtio-spec §5.14 | Apache-2.0 / public |
-| Apple Core Audio Overview (2004) | developer.apple.com | Reference only |
-| Apple Audio Unit Programming Guide (AU v2) | developer.apple.com | Reference only |
-| Apple Audio Unit Extensions — AUv3 (2015) | developer.apple.com | Reference only |
-| Apple Core MIDI Framework Reference | developer.apple.com | Reference only |
-| Steinberg VST2 SDK 2.4 | Steinberg developer portal | Steinberg Free SDK (reference) |
-| Steinberg VST3 SDK | https://github.com/steinbergmedia/vst3sdk | GPL v3 / Steinberg dual |
-| CLAP SDK | https://github.com/free-audio/clap | MIT |
-| LV2 Core Specification | https://lv2plug.in | ISC |
-
-No code from Apple's Core Audio, Core MIDI, or Audio Unit implementations is
-copied into Neomach.  These documents are consulted only for API design
-inspiration.  The Neomach Audio Server, MIDI Server, and Audio Units framework
-are original implementations using Mach IPC as their sole transport.
-
-The Steinberg VST2 SDK is referenced for the frozen `AEffect` struct ABI only;
-no VST2 SDK source is embedded.  The Steinberg VST3 SDK is an optional build
-dependency for the VST3 bridge component and is fetched at build time under its
-GPL v3 licence.  CLAP and LV2 SDKs are MIT and ISC respectively and may be
-included as build dependencies.
-
-## Neomach Original Code
-
-All original Neomach code (kernel, servers, build system, documentation) is
-authored by the Neomach project contributors. License TBD — expected to be a
+All original NEOMACH code (kernel, servers, build system, documentation) is
+authored by the NEOMACH project contributors. License TBD — expected to be a
 permissive license (MIT or BSD-2-Clause).
 
 ## XNU Reference (not mirrored)

@@ -1,5 +1,5 @@
 /*
- * kernel/platform/gdt.c — GDT initialisation for UNHOX (x86-64)
+ * kernel/platform/gdt.c — GDT initialisation for NEOMACH (x86-64)
  *
  * Builds a minimal three-entry Global Descriptor Table and loads it via the
  * lgdt instruction.  After gdt_init() returns all segment registers hold

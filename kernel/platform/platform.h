@@ -1,5 +1,5 @@
 /*
- * kernel/platform/platform.h — x86-64 hardware abstraction layer for UNHOX
+ * kernel/platform/platform.h — x86-64 hardware abstraction layer for NEOMACH
  *
  * This subsystem provides the minimal hardware abstractions the kernel core
  * needs to start and run on x86-64 bare metal or under QEMU:

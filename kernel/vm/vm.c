@@ -1,5 +1,5 @@
 /*
- * kernel/vm/vm.c — Virtual memory subsystem initialisation for UNHOX
+ * kernel/vm/vm.c — Virtual memory subsystem initialisation for NEOMACH
  *
  * Initialises the physical page allocator from the memory map provided by
  * the Multiboot2 bootloader, then sets up the kernel's own address space.

@@ -1,5 +1,5 @@
 /*
- * kernel/kern/klib.c — Minimal C library for freestanding UNHOX kernel
+ * kernel/kern/klib.c — Minimal C library for freestanding NEOMACH kernel
  */
 
 #include "klib.h"

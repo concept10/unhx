@@ -16,14 +16,27 @@ putting pager logic in the kernel.
 - **vm_page** — physical page tracking
 - **memory_object** — Mach port interface for external pagers
 
-## Implementation Plan
+## Current Status — Phase 1 Complete (partial)
 
-- [ ] `vm_map.h` / `vm_map.c` — address space management
-- [ ] `vm_object.h` / `vm_object.c` — memory object lifecycle
-- [ ] `vm_page.h` / `vm_page.c` — physical page allocator
-- [ ] `pmap.h` — platform-specific page table abstraction (implemented in `platform/`)
-- [ ] `vm_fault.c` — page fault handler, calls external pager
+| File | Status | Description |
+|------|--------|-------------|
+| `vm_page.h` / `vm_page.c` | ✅ Done | Physical page frame allocator; initialized from Multiboot memory map |
+| `vm.h` / `vm.c` | ✅ Done | VM subsystem init (`vm_init`); wires `vm_page_alloc` into the paging layer |
+| `vm_map.h` | ✅ Done | Per-task address space interface (Phase 1 stubs) |
+| `vm_map.c` | 🔲 Phase 2 | Full address space management — map/unmap/protect |
+| `vm_object.h` / `vm_object.c` | 🔲 Phase 2 | Memory object lifecycle |
+| `vm_fault.c` | 🔲 Phase 2 | Page fault handler, calls external pager |
+| `memory_object.c` | 🔲 Phase 2 | External pager protocol stubs |
+
+## Phase 2 TODO
+
+- [ ] `vm_map.c` — per-task address space management
+- [ ] `vm_object.c` — memory object lifecycle
+- [ ] `vm_fault.c` — page fault handler
 - [ ] `memory_object.c` — external pager protocol stubs
+- [ ] Verify: user task runs in its own address space
+- [ ] Unit test: allocate and free physical pages
+- [ ] Unit test: vm_map create/destroy
 
 ## References
 

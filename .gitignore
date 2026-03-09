@@ -14,9 +14,15 @@ Makefile
 _codeql_build_dir/
 _codeql_detected_source_root
 
+# Temporary files
+.tmp/
+
 # Editor / IDE
 .vscode/
 *.swp
 *.swo
 *~
 .DS_Store
+
+# Build cache
+.cache/
