@@ -68,7 +68,7 @@ kernel/
 ## Build
 
 ```sh
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf.cmake
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/x86_64-elf-clang.cmake
 cmake --build build
 ```
 
@@ -84,3 +84,22 @@ Debug with GDB:
 # Terminal 1 — already running: tools/run-qemu.sh
 tools/debug-qemu.sh
 ```
+
+## Current Status — Phase 1 Complete ✅
+
+The kernel achieved its first successful boot on **2026-03-01**.
+
+| Subsystem | Status | Notes |
+|-----------|--------|-------|
+| Platform / Boot (x86-64) | ✅ | Multiboot1, GDT, 4-level paging, NS16550 UART |
+| Platform / Boot (AArch64) | ✅ | QEMU virt, PL011 UART |
+| Context Switch | ✅ | Cooperative (callee-saved GPRs) |
+| Kernel Heap | ✅ | 256 KB bump allocator (`kalloc`) |
+| Physical Memory | ✅ | Page frame allocator (`vm_page`) |
+| IPC | ✅ | Ports, spaces, queues, `mach_msg` — 13/13 milestone tests PASS |
+| Tasks & Threads | ✅ | Task/thread lifecycle, cooperative round-robin scheduler |
+| Bootstrap Server | ✅ | Name→port registry (`servers/bootstrap/`) |
+| IDT / Interrupts | 🔲 Phase 2 | Required for preemptive scheduling |
+| VM Maps (full) | 🔲 Phase 2 | Userspace address spaces |
+| VM Objects / Fault | 🔲 Phase 2 | External pager protocol |
+| Blocking IPC | 🔲 Phase 2 | Thread sleep/wakeup on port queues |

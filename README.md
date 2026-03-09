@@ -49,7 +49,7 @@ neomach/
 
 ```sh
 # Clone with all submodules
-git clone --recurse-submodules https://github.com/concept10/neomach.git
+git clone --recurse-submodules https://github.com/outlaw-dma/neomach.git
 
 # Or initialize submodules after cloning
 git submodule update --init --recursive
@@ -57,14 +57,26 @@ git submodule update --init --recursive
 
 ## Current Status
 
-**Phase 0 — Source Archaeology & Repository Setup** (in progress)
+**Phase 1 — Kernel Core** ✅ Complete (2026-03-01)
+
+The NEOMACH kernel achieved its first successful boot on **March 1, 2026** under
+QEMU x86-64 with all Phase 1 milestone tests passing.
 
 - [x] Repository directory structure created
-- [x] Framework submodules added (libobjc2, GNUstep Foundation, AppKit)
+- [x] Build system (CMake + Nix flake)
+- [x] Framework submodules added (libobjc2, GNUstep Foundation, AppKit, libdispatch, CoreFoundation)
+- [x] Cross-compilation toolchain (Clang/LLD targeting `x86_64-unknown-elf`)
+- [x] Kernel boots under QEMU — serial output confirmed **(milestone v0.1 ✅)**
+- [x] Mach IPC: ports, port spaces, message queues, `mach_msg` — 13/13 tests pass **(milestone v0.2 ✅)**
+- [x] Bootstrap server: service registration and port lookup **(milestone v0.3 ✅)**
+- [x] Tasks and threads: task create/destroy, thread lifecycle, cooperative scheduler
+- [x] Virtual memory: physical page frame allocator, kernel heap (kalloc)
+- [x] AArch64 (Apple Silicon) boot and UART driver
 - [ ] CMU Mach 3.0 sources mirrored to `archive/cmu-mach/`
-- [ ] Build system (CMake + Nix)
-- [ ] First kernel code
+- [ ] IDT, APIC, preemptive scheduler (Phase 2)
+- [ ] BSD server, VFS server, shell (Phase 2)
 
+See [HISTORY.md](HISTORY.md) for the first-boot log and build notes.
 See [TASKS.md](TASKS.md) for the full actionable task list.
 
 ## Full Software Stack
@@ -89,17 +101,17 @@ See [TASKS.md](TASKS.md) for the full actionable task list.
 
 ## Milestones
 
-| Milestone | Name | Success Criteria |
-|-----------|------|-----------------|
-| v0.1 | Mach Boots | Kernel boots under QEMU, serial output |
-| v0.2 | IPC Works | Two tasks pass a Mach message |
-| v0.3 | Bootstrap | Bootstrap server, service registration |
-| v0.4 | BSD Server | Fork, exec, basic POSIX syscalls |
-| v0.5 | Shell | A shell prompt running on NEOMACH |
-| v0.6 | Disk & FS | Boot from disk, read/write files |
-| v0.7 | Foundation | GNUstep Foundation app runs |
-| v0.8 | Display | Framebuffer + minimal window system |
-| v1.0 | Desktop | Full NeXT-heritage desktop boots |
+| Milestone | Name | Success Criteria | Status |
+|-----------|------|-----------------|--------|
+| v0.1 | Mach Boots | Kernel boots under QEMU, serial output | ✅ 2026-03-01 |
+| v0.2 | IPC Works | Two tasks pass a Mach message | ✅ 2026-03-01 |
+| v0.3 | Bootstrap | Bootstrap server, service registration | ✅ 2026-03-01 |
+| v0.4 | BSD Server | Fork, exec, basic POSIX syscalls | 🔲 Phase 2 |
+| v0.5 | Shell | A shell prompt running on NEOMACH | 🔲 Phase 2 |
+| v0.6 | Disk & FS | Boot from disk, read/write files | 🔲 Phase 3 |
+| v0.7 | Foundation | GNUstep Foundation app runs | 🔲 Phase 4 |
+| v0.8 | Display | Framebuffer + minimal window system | 🔲 Phase 5 |
+| v1.0 | Desktop | Full NeXT-heritage desktop boots | 🔲 Phase 5 |
 
 ## Design Principles
 
