@@ -36,6 +36,12 @@ NEOMACH maintains strict microkernel discipline. The boundary:
 - Device drivers
 - Network stack
 - Authentication/capabilities
+- Audio Server (HAL, graph, RT mixing)
+- MIDI Server (device I/O, event routing)
+
+**Framework layer (frameworks/ directory):**
+- Audio Units (plugin model for effects, instruments, converters)
+- Objective-C runtime, Foundation, AppKit, libdispatch
 
 ## Boot Sequence
 
