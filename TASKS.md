@@ -52,6 +52,7 @@ Check off items as they are completed.
 - [x] Write `docs/ipc-design.md` — IPC subsystem design decisions
 - [x] Write `docs/bsd-server-design.md` — BSD server architecture and hard problems
 - [x] Create `docs/rfcs/` directory and write first RFC (RFC-0001: IPC message format)
+- [x] Write `docs/future.md` — future core systems strategy (audio/MIDI/graphics/media/networking/security, L4/seL4 improvements, licensing matrix)
 
 ---
 

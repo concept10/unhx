@@ -115,6 +115,11 @@ The NEOMACH kernel is not limited to desktop use.  The microkernel design enable
 on embedded edge devices, industrial PLC controllers, virtual PLC runtimes, and automotive
 SoCs — the same kernel binary, different servers.
 
+See [docs/future.md](docs/future.md) for the design strategy covering future core
+system frameworks: audio (Core Audio / Audio Units / Core MIDI), graphics,
+media, networking, security, and the L4/seL4 kernel enhancements planned for
+NEOMACH — including a full licensing and compliance matrix.
+
 See [docs/use-cases.md](docs/use-cases.md) for:
 - Processor architecture requirements and minimum hardware specs
 - RTOS and real-time applicability
