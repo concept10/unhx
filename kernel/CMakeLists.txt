@@ -108,6 +108,8 @@ set(KERNEL_SOURCES
     ipc/ipc.c
     ipc/ipc_mqueue.c
     ipc/ipc_kmsg.c
+    ipc/ipc_right.c
+    ipc/mach_msg.c
 
     # VM subsystem
     vm/vm.c
@@ -130,6 +132,8 @@ set(KERNEL_SOURCES
 if(NEOMACH_BOOT_TESTS)
     list(APPEND KERNEL_SOURCES
         tests/ipc_test.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_roundtrip_test.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_perf.c
     )
     add_compile_definitions(NEOMACH_BOOT_TESTS=1)
 endif()
@@ -144,6 +148,8 @@ target_include_directories(neomach.elf PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../servers
+    ${CMAKE_CURRENT_SOURCE_DIR}/../tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 target_compile_options(neomach.elf PRIVATE
