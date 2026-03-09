@@ -17,6 +17,8 @@
 
 #ifdef NEOMACH_BOOT_TESTS
 #include "tests/ipc_test.h"
+#include "tests/ipc/ipc_roundtrip_test.h"
+#include "tests/ipc/ipc_perf.h"
 #endif
 
 /* Serial output and platform initialisation (platform layer) */
@@ -93,6 +95,20 @@ void kernel_main(void)
     } else {
         serial_putstr("\r\n[NEOMACH] Milestone tests FAILED.\r\n");
     }
+
+    /*
+     * IPC round-trip correctness test:
+     * Exercises ipc_right.c and mach_msg_trap() with 5 test scenarios.
+     */
+    serial_putstr("\r\n");
+    ipc_roundtrip_test_run();
+
+    /*
+     * IPC performance benchmark:
+     * Measures null Mach message round-trip latency via TSC.
+     */
+    serial_putstr("\r\n");
+    ipc_perf_run();
 #endif
 
     /* Halt — preemptive scheduler loop goes here in Phase 2 */
