@@ -45,6 +45,7 @@ struct ipc_port *ipc_port_alloc(struct task *receiver)
     port->ip_send_rights = 0;
     port->ip_receiver    = receiver;
     port->ip_seqno       = 0;
+    port->ip_nsrequest   = (void *)0;
 
     /* Allocate and initialise the message queue */
     port->ip_messages = (struct ipc_mqueue *)kalloc(sizeof(struct ipc_mqueue));
@@ -87,8 +88,21 @@ void ipc_port_destroy(struct ipc_port *port)
 
     ipc_port_unlock(port);
 
-    /* Free the message queue and port memory */
-    kfree(port->ip_messages);
+    /*
+     * Drain all queued messages and free their OOL buffers.
+     *
+     * CMU Mach 3.0 paper §3.1: When the receive right is destroyed, all
+     * messages still queued on the port are discarded.  In a full
+     * implementation with port-set membership, this would also remove the
+     * port from any port sets it belongs to.
+     */
+    if (port->ip_messages) {
+        ipc_mqueue_drain(port->ip_messages);
+        kfree(port->ip_messages);
+        port->ip_messages = (void *)0;
+    }
+
+    /* Free the port memory */
     kfree(port);
 }
 

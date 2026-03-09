@@ -281,7 +281,8 @@ static void test_rpc_pattern(struct task *kernel_task)
                        sizeof(req2),
                        sizeof(req2),
                        client_reply_port,
-                       &combined_sz);
+                       &combined_sz,
+                       MACH_MSG_TIMEOUT_NONE);
     rt_assert("client: mach_msg_trap SEND|RCV succeeds", kr == KERN_SUCCESS);
     rt_assert("client: combined recv magic correct", req2.magic == RT_MAGIC);
     rt_assert("client: combined recv seq correct",   req2.seq == 45);
@@ -296,7 +297,8 @@ static void test_rpc_pattern(struct task *kernel_task)
                        0,
                        sizeof(cli_recv),
                        client_reply_port,
-                       &cli_sz);
+                       &cli_sz,
+                       MACH_MSG_TIMEOUT_NONE);
     rt_assert("client: mach_msg_trap RECEIVE succeeds", kr == KERN_SUCCESS);
     rt_assert("client: reply magic correct", cli_recv.magic == RT_MAGIC);
     rt_assert("client: reply seq correct",   cli_recv.seq == 43);

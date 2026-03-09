@@ -42,6 +42,8 @@ typedef uint32_t mach_msg_option_t;
  * rcv_size:      size of the receive buffer (0 if not receiving)
  * rcv_name:      port name to receive on (MACH_PORT_NULL if not receiving)
  * out_rcv_size:  OUT — actual received message size (NULL if not receiving)
+ * timeout:       receive timeout in milliseconds; MACH_MSG_TIMEOUT_NONE (0) means
+ *                no timeout (ignored unless MACH_RCV_TIMEOUT is set in option).
  *
  * Returns KERN_SUCCESS or an error code.
  *
@@ -54,7 +56,8 @@ kern_return_t mach_msg_trap(struct task *task,
                              mach_msg_size_t send_size,
                              mach_msg_size_t rcv_size,
                              mach_port_name_t rcv_name,
-                             mach_msg_size_t *out_rcv_size);
+                             mach_msg_size_t *out_rcv_size,
+                             mach_msg_timeout_t timeout);
 
 /*
  * mach_msg_rpc — synchronous send+receive RPC helper.

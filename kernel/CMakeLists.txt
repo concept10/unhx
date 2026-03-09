@@ -140,10 +140,18 @@ if(NEOMACH_BOOT_TESTS)
         tests/ipc_test.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_roundtrip_test.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_perf.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_ool_test.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_port_transfer_test.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/ipc/ipc_timeout_test.c
         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/bsd/bsd_server_test.c
     )
     add_compile_definitions(NEOMACH_BOOT_TESTS=1)
 endif()
+
+# Add the Phase 2 bootstrap IPC server
+list(APPEND KERNEL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../servers/bootstrap/bootstrap_ipc.c
+)
 
 # ---------------------------------------------------------------------------
 # Kernel binary target
