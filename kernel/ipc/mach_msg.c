@@ -88,7 +88,8 @@ mach_msg_trap(struct task *task,
               mach_msg_size_t send_size,
               mach_msg_size_t rcv_size,
               mach_port_name_t rcv_name,
-              mach_msg_size_t *out_rcv_size)
+              mach_msg_size_t *out_rcv_size,
+              mach_msg_timeout_t timeout)
 {
     if (!task)
         return KERN_INVALID_ARGUMENT;
@@ -121,21 +122,31 @@ mach_msg_trap(struct task *task,
             return KERN_INVALID_NAME;
 
         mach_msg_size_t actual_rcv_size = 0;
-        kr = mach_msg_receive(task, rcv_name,
-                              msg, rcv_size, &actual_rcv_size);
+
+        /*
+         * Phase 2: honour MACH_RCV_TIMEOUT.
+         * When MACH_RCV_TIMEOUT is set, pass the timeout value through to
+         * mach_msg_receive_timeout() so the receive blocks until either a
+         * message arrives or the timeout expires.
+         *
+         * When MACH_RCV_TIMEOUT is NOT set, use MACH_MSG_TIMEOUT_NONE which
+         * makes the receive non-blocking (returns immediately if empty).
+         *
+         * TODO (Phase 3): Replace the busy-wait loop in
+         * mach_msg_receive_timeout() with a scheduler sleep/wakeup once
+         * preemptive scheduling and APIC timer interrupts are available.
+         */
+        mach_msg_timeout_t rcv_timeout =
+            (option & MACH_RCV_TIMEOUT) ? timeout : MACH_MSG_TIMEOUT_NONE;
+
+        kr = mach_msg_receive_timeout(task, rcv_name,
+                                       msg, rcv_size,
+                                       &actual_rcv_size,
+                                       rcv_timeout);
 
         if (out_rcv_size)
             *out_rcv_size = actual_rcv_size;
 
-        /*
-         * Phase 1: non-blocking. If no message is available, return the
-         * error code from mach_msg_receive().
-         *
-         * TODO (Phase 2): When MACH_RCV_TIMEOUT is NOT set, block the
-         * calling thread on the port's mqueue wait queue.  The scheduler
-         * will wake the thread when a message arrives (or the timeout fires).
-         * This is the critical path for L4-style synchronous IPC performance.
-         */
         if (kr != KERN_SUCCESS)
             return kr;
     }

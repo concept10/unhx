@@ -324,14 +324,29 @@ ipc_right_deallocate(struct task *task, mach_port_name_t name)
             ipc_space_unlock(space);
 
             /* Decrement the port's global send-right count */
+            struct ipc_port *nsport = (void *)0;
             if (port &&
                 atomic_load_explicit(&port->ip_type, memory_order_acquire)
                     != IPC_PORT_TYPE_DEAD) {
                 ipc_port_lock(port);
                 if (port->ip_send_rights > 0)
                     port->ip_send_rights--;
+                /*
+                 * If this was the last send right and a no-senders
+                 * notification was requested, capture and clear the
+                 * nsrequest port while holding ip_lock so delivery is
+                 * at most once.
+                 */
+                if (port->ip_send_rights == 0 && port->ip_nsrequest) {
+                    nsport = port->ip_nsrequest;
+                    port->ip_nsrequest = (void *)0;
+                }
                 ipc_port_unlock(port);
             }
+
+            /* Deliver no-senders notification outside of any lock */
+            if (nsport)
+                ipc_right_nsnotify(nsport);
         }
         return KERN_SUCCESS;
     }
@@ -452,5 +467,112 @@ ipc_right_transfer(struct task *src_task,
     }
 
     *dst_namep = dst_name;
+    return KERN_SUCCESS;
+}
+
+/* -------------------------------------------------------------------------
+ * ipc_right_nsnotify — deliver a no-senders notification (Phase 2)
+ *
+ * Sends a MACH_NOTIFY_NO_SENDERS message to the notification port.
+ * The message contains only a header (no payload) with msgh_id set to
+ * MACH_NOTIFY_NO_SENDERS.
+ *
+ * Called with no locks held.
+ * ------------------------------------------------------------------------- */
+void ipc_right_nsnotify(struct ipc_port *nsport)
+{
+    if (!nsport)
+        return;
+
+    /* Check that the notification port is still alive */
+    if (atomic_load_explicit(&nsport->ip_type, memory_order_acquire)
+            == IPC_PORT_TYPE_DEAD)
+        return;
+
+    /* Build the notification message (header only) */
+    mach_msg_header_t note;
+    kmemset(&note, 0, sizeof(note));
+    note.msgh_bits         = MACH_MSGH_BITS(MACH_PORT_RIGHT_SEND, 0);
+    note.msgh_size         = sizeof(note);
+    note.msgh_remote_port  = MACH_PORT_NULL;
+    note.msgh_local_port   = MACH_PORT_NULL;
+    note.msgh_voucher_port = MACH_PORT_NULL;
+    note.msgh_id           = MACH_NOTIFY_NO_SENDERS;
+
+    /* Enqueue directly on the notification port's message queue */
+    if (nsport->ip_messages)
+        (void)ipc_mqueue_send(nsport->ip_messages, &note, sizeof(note));
+}
+
+/* -------------------------------------------------------------------------
+ * ipc_right_request_notification — register no-senders notification (Phase 2)
+ *
+ * Sets ip_nsrequest on the port named by port_name in task's space.
+ * The caller identifies the notification port via notify_task:notify_port_name.
+ *
+ * If a previous nsrequest was registered, *prev_nsrequest receives it (the
+ * caller is responsible for releasing or ignoring it).
+ * ------------------------------------------------------------------------- */
+kern_return_t
+ipc_right_request_notification(struct task *task,
+                                mach_port_name_t port_name,
+                                struct task *notify_task,
+                                mach_port_name_t notify_port_name,
+                                struct ipc_port **prev_nsrequest)
+{
+    if (!task || !notify_task)
+        return KERN_INVALID_ARGUMENT;
+
+    struct ipc_space *space = task->t_ipc_space;
+    if (!space || !space->is_active)
+        return KERN_INVALID_TASK;
+
+    /* Look up the target port — caller must hold RECEIVE right */
+    ipc_space_lock(space);
+    struct ipc_entry *entry = ipc_space_lookup(space, port_name);
+    if (!entry) {
+        ipc_space_unlock(space);
+        return KERN_INVALID_NAME;
+    }
+    if (!(entry->ie_bits & IE_BITS_RECEIVE)) {
+        ipc_space_unlock(space);
+        return KERN_INVALID_RIGHT;
+    }
+    struct ipc_port *target_port = entry->ie_object;
+    ipc_space_unlock(space);
+
+    if (!target_port)
+        return KERN_INVALID_NAME;
+
+    /* Look up the notification port — caller must hold a SEND right */
+    struct ipc_space *notify_space = notify_task->t_ipc_space;
+    if (!notify_space || !notify_space->is_active)
+        return KERN_INVALID_TASK;
+
+    ipc_space_lock(notify_space);
+    struct ipc_entry *nentry = ipc_space_lookup(notify_space, notify_port_name);
+    if (!nentry) {
+        ipc_space_unlock(notify_space);
+        return KERN_INVALID_NAME;
+    }
+    if (!(nentry->ie_bits & (IE_BITS_SEND | IE_BITS_SEND_ONCE))) {
+        ipc_space_unlock(notify_space);
+        return KERN_INVALID_RIGHT;
+    }
+    struct ipc_port *notify_port = nentry->ie_object;
+    ipc_space_unlock(notify_space);
+
+    if (!notify_port)
+        return KERN_INVALID_NAME;
+
+    /* Install the notification request */
+    ipc_port_lock(target_port);
+    struct ipc_port *old = target_port->ip_nsrequest;
+    target_port->ip_nsrequest = notify_port;
+    ipc_port_unlock(target_port);
+
+    if (prev_nsrequest)
+        *prev_nsrequest = old;
+
     return KERN_SUCCESS;
 }

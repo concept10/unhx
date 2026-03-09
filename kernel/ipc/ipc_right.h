@@ -87,4 +87,51 @@ kern_return_t ipc_right_transfer(struct task *src_task,
                                  struct task *dst_task,
                                  mach_port_name_t *dst_namep);
 
+/* -------------------------------------------------------------------------
+ * Phase 2 additions
+ * ------------------------------------------------------------------------- */
+
+/*
+ * MACH_NOTIFY_NO_SENDERS — message ID for the no-senders notification.
+ *
+ * CMU Mach 3.0 paper §3.1: delivered when the last send right to a port
+ * is destroyed and a no-senders request was registered.
+ * Value matches the XNU / GNU Mach convention.
+ */
+#define MACH_NOTIFY_NO_SENDERS  70
+
+/*
+ * ipc_right_nsnotify — deliver a no-senders notification to nsport.
+ *
+ * Enqueues a MACH_NOTIFY_NO_SENDERS message on the given notification port.
+ * Called from ipc_right_deallocate() when ip_send_rights drops to zero.
+ *
+ * nsport: the notification port (ip_nsrequest value); must be non-NULL.
+ *
+ * Ownership: this function does NOT consume a send right on nsport;
+ * the caller must ensure nsport remains alive for the duration of the call.
+ */
+void ipc_right_nsnotify(struct ipc_port *nsport);
+
+/*
+ * ipc_right_request_notification — register a no-senders notification port.
+ *
+ * task:             the task holding the RECEIVE right for the target port
+ * port_name:        port name in task's space to register the request on
+ * notify_task:      task that holds the SEND right to the notification port
+ * notify_port_name: port name of the notification port in notify_task's space
+ * prev_nsrequest:   OUT — previously registered nsrequest (may be NULL)
+ *
+ * On success, any message sent to the port when ip_send_rights drops to zero
+ * will be delivered to the notification port.
+ *
+ * Returns KERN_SUCCESS or an error.
+ */
+kern_return_t
+ipc_right_request_notification(struct task *task,
+                                mach_port_name_t port_name,
+                                struct task *notify_task,
+                                mach_port_name_t notify_port_name,
+                                struct ipc_port **prev_nsrequest);
+
 #endif /* IPC_RIGHT_H */

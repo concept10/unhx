@@ -19,6 +19,9 @@
 #include "tests/ipc_test.h"
 #include "tests/ipc/ipc_roundtrip_test.h"
 #include "tests/ipc/ipc_perf.h"
+#include "tests/ipc/ipc_ool_test.h"
+#include "tests/ipc/ipc_port_transfer_test.h"
+#include "tests/ipc/ipc_timeout_test.h"
 #endif
 
 /* Serial output and platform initialisation (platform layer) */
@@ -27,6 +30,9 @@ extern void serial_putstr(const char *s);
 
 /* Bootstrap server entry (Phase 1: kernel-internal) */
 extern void bootstrap_main(void);
+
+/* Bootstrap IPC server (Phase 2) */
+extern void bootstrap_ipc_init(void);
 
 void kern_init(void)
 {
@@ -44,7 +50,7 @@ void kernel_main(void)
     serial_putstr("\r\n");
     serial_putstr("================================================\r\n");
     serial_putstr("  NEOMACH — The Mach Kernel Reborn\r\n");
-    serial_putstr("  Mach microkernel — Phase 1\r\n");
+    serial_putstr("  Mach microkernel — Phase 2\r\n");
     serial_putstr("================================================\r\n");
     serial_putstr("[NEOMACH] kernel_main entered\r\n");
 
@@ -82,6 +88,12 @@ void kernel_main(void)
     serial_putstr("\r\n");
     bootstrap_main();
 
+    /*
+     * Bootstrap IPC server (Phase 2): initialise IPC-based service registry.
+     */
+    serial_putstr("\r\n");
+    bootstrap_ipc_init();
+
 #ifdef NEOMACH_BOOT_TESTS
     /*
      * Formal IPC milestone test (Prompt 8 — v0.2):
@@ -109,6 +121,19 @@ void kernel_main(void)
      */
     serial_putstr("\r\n");
     ipc_perf_run();
+
+    /*
+     * Phase 2 IPC tests:
+     * OOL descriptors, port right transfer, and blocking receive with timeout.
+     */
+    serial_putstr("\r\n");
+    ipc_ool_test_run();
+
+    serial_putstr("\r\n");
+    ipc_port_transfer_test_run();
+
+    serial_putstr("\r\n");
+    ipc_timeout_test_run();
 #endif
 
     /* Halt — preemptive scheduler loop goes here in Phase 2 */
